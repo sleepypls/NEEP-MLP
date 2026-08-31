@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1120">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="MLP-style pickleball tournament tracker: snake draft, bracket, live regulation &amp; Dreambreaker scoring, and an all-time leaderboard saved on this device.">
+<title>NEEP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { background:#0b1120; }
+  body { font-family: 'Public Sans', system-ui, -apple-system, sans-serif; }
+  * { -webkit-tap-highlight-color: transparent; }
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  @keyframes pulse-fast { 0%,100% { opacity:1; transform: translate(-50%,0) scale(1); } 50% { opacity:0.85; transform: translate(-50%,0) scale(1.03); } }
+  .animate-pulse { animation: pulse-fast 1s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+</style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['Teko', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.6/babel.min.js"></script>
+
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+// ---------- Constants ----------
+const STORAGE_KEY_STATS = 'neep-pickleball-global-stats-v1';
+const STORAGE_KEY_TOURNAMENT = 'neep-pickleball-tournament-state-v1';
+
+const TEAM_COLORS = [
+  { accent: '#22d3ee', chip: 'bg-cyan-500', text: 'text-cyan-400', border: 'border-cyan-500', ring: 'ring-cyan-400', soft: 'bg-cyan-500/10' },
+  { accent: '#fb923c', chip: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-500', ring: 'ring-orange-400', soft: 'bg-orange-500/10' },
+  { accent: '#f472b6', chip: 'bg-pink-500', text: 'text-pink-400', border: 'border-pink-500', ring: 'ring-pink-400', soft: 'bg-pink-500/10' },
+  { accent: '#a3e635', chip: 'bg-lime-500', text: 'text-lime-400', border: 'border-lime-500', ring: 'ring-lime-400', soft: 'bg-lime-500/10' },
+  { accent: '#c084fc', chip: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500', ring: 'ring-purple-400', soft: 'bg-purple-500/10' },
+  { accent: '#f87171', chip: 'bg-red-500', text: 'text-red-400', border: 'border-red-500', ring: 'ring-red-400', soft: 'bg-red-500/10' },
+  { accent: '#facc15', chip: 'bg-yellow-500', text: 'text-yellow-400', border: 'border-yellow-500', ring: 'ring-yellow-400', soft: 'bg-yellow-500/10' },
+  { accent: '#60a5fa', chip: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500', ring: 'ring-blue-400', soft: 'bg-blue-500/10' },
+];
+
+// ---------- Pure helpers (no React) ----------
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Fixed doubles partnerships from draft order: 1st+last, 2nd+2nd-last, etc.
+function generatePairs(draftOrder) {
+  const pairs = [];
+  const n = draftOrder.length;
+  for (let i = 0; i < n / 2; i++) {
+    pairs.push([draftOrder[i], draftOrder[n - 1 - i]]);
+  }
+  return pairs;
+}
+
+// Generates exactly K games (K = players per team) from the fixed partnerships.
+// numPairs = K/2. Each partnership plays exactly 2 games (against two different
+// opposing partnerships), so numPairs * 2 = K games, always -- satisfying the
+// "games == team size" rule for any team size while keeping partnerships fixed.
+function generateGames(teamA, teamB, goalScore) {
+  const pairsA = generatePairs(teamA.draftOrder);
+  const pairsB = generatePairs(teamB.draftOrder);
+  const numPairs = pairsA.length;
+  const games = [];
+  for (let i = 0; i < numPairs; i++) {
+    games.push({ pairA: pairsA[i], pairB: pairsB[i] });
+  }
+  for (let i = 0; i < numPairs; i++) {
+    games.push({ pairA: pairsA[i], pairB: pairsB[(i + 1) % numPairs] });
+  }
+  return games.map((g, idx) => ({
+    id: idx,
+    pairA: g.pairA,
+    pairB: g.pairB,
+    scoreA: goalScore,
+    scoreB: goalScore,
+    saved: false,
+  }));
+}
+
+function initializeDraftState(playerPool, numTeams) {
+  const shuffled = shuffle(playerPool);
+  const teamSize = Math.floor(playerPool.length / numTeams);
+  const totalDrafted = teamSize * numTeams;
+  const sittingOut = shuffled.slice(totalDrafted);
+  const draftPlayers = shuffled.slice(0, totalDrafted);
+  const captains = draftPlayers.slice(0, numTeams);
+  const remainingPool = draftPlayers.slice(numTeams);
+
+  const teams = captains.map((cap, i) => ({
+    id: i,
+    name: `Team ${cap.name}`,
+    color: TEAM_COLORS[i % TEAM_COLORS.length],
+    captainId: cap.id,
+    draftOrder: [cap.id],
+  }));
+
+  const roundsNeeded = teamSize - 1;
+  const pickSequence = [];
+  for (let rn = 1; rn <= roundsNeeded; rn++) {
+    const order = [...Array(numTeams).keys()];
+    if (rn % 2 === 1) order.reverse();
+    pickSequence.push(...order);
+  }
+
+  const playersById = {};
+  playerPool.forEach((p) => { playersById[p.id] = p.name; });
+
+  return { teams, remainingPool, pickSequence, playersById, sittingOut, teamSize };
+}
+
+function generateBracket(teamsInput) {
+  const order = shuffle(teamsInput);
+  const numTeams = order.length;
+  const numRounds = Math.log2(numTeams);
+  const rounds = [];
+
+  const round0 = [];
+  for (let i = 0; i < numTeams; i += 2) {
+    round0.push({
+      id: `r0-m${i / 2}`,
+      teamAId: order[i].id,
+      teamBId: order[i + 1].id,
+      status: 'ready',
+      games: null,
+      gamesWonA: 0,
+      gamesWonB: 0,
+      winnerId: null,
+      dreambreaker: null,
+    });
+  }
+  rounds.push(round0);
+
+  for (let r = 1; r < numRounds; r++) {
+    const count = numTeams / Math.pow(2, r + 1);
+    const matches = [];
+    for (let i = 0; i < count; i++) {
+      matches.push({
+        id: `r${r}-m${i}`,
+        teamAId: null,
+        teamBId: null,
+        status: 'pending',
+        games: null,
+        gamesWonA: 0,
+        gamesWonB: 0,
+        winnerId: null,
+        dreambreaker: null,
+      });
+    }
+    rounds.push(matches);
+  }
+
+  return { rounds, championId: null };
+}
+
+function advanceWinner(bracket, roundIdx, matchIdx, winnerId) {
+  const nb = JSON.parse(JSON.stringify(bracket));
+  const m = nb.rounds[roundIdx][matchIdx];
+  m.winnerId = winnerId;
+  m.status = 'complete';
+  if (roundIdx + 1 < nb.rounds.length) {
+    const nextIdx = Math.floor(matchIdx / 2);
+    const slot = matchIdx % 2 === 0 ? 'teamAId' : 'teamBId';
+    const nextMatch = nb.rounds[roundIdx + 1][nextIdx];
+    nextMatch[slot] = winnerId;
+    if (nextMatch.teamAId && nextMatch.teamBId) nextMatch.status = 'ready';
+  } else {
+    nb.championId = winnerId;
+  }
+  return nb;
+}
+
+function roundName(totalRounds, roundIdx) {
+  const remaining = totalRounds - roundIdx;
+  if (remaining === 1) return 'Final';
+  if (remaining === 2) return 'Semifinals';
+  if (remaining === 3) return 'Quarterfinals';
+  return `Round ${roundIdx + 1}`;
+}
+
+function loadGlobalStats() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_STATS);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveGlobalStatsToStorage(stats) {
+  try {
+    localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(stats));
+  } catch (e) {
+    // localStorage unavailable -- fail silently, in-memory state still works
+  }
+}
+
+function loadTournamentState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TOURNAMENT);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveTournamentState(state) {
+  try {
+    localStorage.setItem(STORAGE_KEY_TOURNAMENT, JSON.stringify(state));
+  } catch (e) {
+    // ignore
+  }
+}
+
+function clearTournamentState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY_TOURNAMENT);
+  } catch (e) {
+    // ignore
+  }
+}
+
+// ---------- Small UI atoms ----------
+
+function IconBase({ children, size = 24, className = '', strokeWidth = 2 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {children}
+    </svg>
+  );
+}
+
+function Plus(props) { return <IconBase {...props}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></IconBase>; }
+function XIcon(props) { return <IconBase {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></IconBase>; }
+function Check(props) { return <IconBase {...props}><polyline points="20 6 9 17 4 12" /></IconBase>; }
+function ChevronDown(props) { return <IconBase {...props}><polyline points="6 9 12 15 18 9" /></IconBase>; }
+function ChevronUp(props) { return <IconBase {...props}><polyline points="18 15 12 9 6 15" /></IconBase>; }
+function ArrowLeft(props) { return <IconBase {...props}><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></IconBase>; }
+function Trash2(props) {
+  return (
+    <IconBase {...props}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </IconBase>
+  );
+}
+function RotateCcw(props) { return <IconBase {...props}><path d="M3 12a9 9 0 1 0 3-6.7" /><polyline points="3 4 3 9 8 9" /></IconBase>; }
+function Lock(props) { return <IconBase {...props}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></IconBase>; }
+function Users(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </IconBase>
+  );
+}
+function UserPlus(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="8.5" cy="7" r="4" />
+      <line x1="20" y1="8" x2="20" y2="14" />
+      <line x1="17" y1="11" x2="23" y2="11" />
+    </IconBase>
+  );
+}
+function Trophy(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
+      <path d="M7 5H4a3 3 0 0 0 3 5" />
+      <path d="M17 5h3a3 3 0 0 1-3 5" />
+    </IconBase>
+  );
+}
+function Zap(props) { return <IconBase {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></IconBase>; }
+function Shuffle(props) {
+  return (
+    <IconBase {...props}>
+      <polyline points="16 3 21 3 21 8" />
+      <line x1="4" y1="20" x2="21" y2="3" />
+      <polyline points="21 16 21 21 16 21" />
+      <line x1="15" y1="15" x2="21" y2="21" />
+      <line x1="4" y1="4" x2="9" y2="9" />
+    </IconBase>
+  );
+}
+function Swords(props) {
+  return (
+    <IconBase {...props}>
+      <line x1="4" y1="20" x2="20" y2="4" />
+      <line x1="20" y1="20" x2="4" y2="4" />
+      <path d="M4 20l3.5-1 1-3.5" />
+      <path d="M20 20l-3.5-1-1-3.5" />
+    </IconBase>
+  );
+}
+function Play(props) { return <IconBase {...props}><polygon points="5 3 19 12 5 21 5 3" /></IconBase>; }
+
+function ConfirmModal({ modal, onCancel }) {
+  if (!modal) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+        <p className="text-slate-100 text-lg font-semibold mb-1">{modal.title}</p>
+        <p className="text-slate-400 text-sm mb-6">{modal.message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-200 font-semibold active:scale-95 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={modal.onConfirm}
+            className="flex-1 py-3 rounded-xl bg-red-600 text-white font-semibold active:scale-95 transition"
+          >
+            {modal.confirmLabel || 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamDot({ color, className = '' }) {
+  return <span className={`inline-block w-3 h-3 rounded-full ${className}`} style={{ backgroundColor: color.accent }} />;
+}
+
+// ---------- Header ----------
+
+function Header({ hasTournament, view, setView, onBracketTab, onClear, onWipeStats }) {
+  return (
+    <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur border-b border-slate-800">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#d7f24c] to-[#9fc93a] flex items-center justify-center shadow-lg shadow-[#d7f24c]/20">
+            <Zap size={20} className="text-slate-950" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h1 className="font-display text-white font-semibold text-2xl leading-none tracking-wide uppercase">NEEP</h1>
+            <p className="text-slate-500 text-[10px] leading-none uppercase tracking-widest">Pickleball Tracker</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {hasTournament && (
+            <div className="hidden sm:flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+              <button
+                onClick={onBracketTab}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold transition ${view === 'bracket' || view === 'match' || view === 'dreambreakerSetup' || view === 'dreambreakerPlay' || view === 'draft' ? 'bg-[#d7f24c] text-slate-950' : 'text-slate-400'}`}
+              >
+                Bracket
+              </button>
+              <button
+                onClick={() => setView('leaderboard')}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold transition ${view === 'leaderboard' ? 'bg-[#d7f24c] text-slate-950' : 'text-slate-400'}`}
+              >
+                Leaderboard
+              </button>
+            </div>
+          )}
+          {!hasTournament && (
+            <button
+              onClick={() => setView(view === 'leaderboard' ? 'setup' : 'leaderboard')}
+              className="px-3 py-1.5 rounded-md text-sm font-semibold bg-slate-900 border border-slate-800 text-slate-300"
+            >
+              {view === 'leaderboard' ? 'Setup' : 'Leaderboard'}
+            </button>
+          )}
+          <button
+            onClick={onClear}
+            title="Clear Tournament"
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 active:scale-95"
+          >
+            <RotateCcw size={18} />
+          </button>
+          <button
+            onClick={onWipeStats}
+            title="Wipe Global Stats"
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-red-400 active:scale-95"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      </div>
+      {hasTournament && (
+        <div className="sm:hidden flex border-t border-slate-800">
+          <button
+            onClick={onBracketTab}
+            className={`flex-1 py-2 text-sm font-semibold ${view === 'bracket' || view === 'match' || view === 'dreambreakerSetup' || view === 'dreambreakerPlay' || view === 'draft' ? 'text-[#d7f24c] border-b-2 border-[#d7f24c]' : 'text-slate-500'}`}
+          >
+            Bracket
+          </button>
+          <button
+            onClick={() => setView('leaderboard')}
+            className={`flex-1 py-2 text-sm font-semibold ${view === 'leaderboard' ? 'text-[#d7f24c] border-b-2 border-[#d7f24c]' : 'text-slate-500'}`}
+          >
+            Leaderboard
+          </button>
+        </div>
+      )}
+    </header>
+  );
+}
+
+// ---------- Setup View ----------
+
+function SetupView({ playerPool, addPlayer, removePlayer, numTeams, setNumTeams, goalScore, setGoalScore, onInitializeDraft }) {
+  const [nameInput, setNameInput] = useState('');
+
+  const teamSize = numTeams ? Math.floor(playerPool.length / numTeams) : 0;
+  const sittingOutCount = playerPool.length - teamSize * numTeams;
+  const meetsMinimum = playerPool.length >= numTeams * 2;
+  const evenTeamSize = teamSize % 2 === 0;
+  const canInitialize = meetsMinimum && evenTeamSize && teamSize >= 2;
+
+  function handleAdd() {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+    addPlayer(trimmed);
+    setNameInput('');
+  }
+
+  return (
+    <div className="max-w-lg mx-auto px-4 py-6 pb-24">
+      <h2 className="text-white text-3xl font-display uppercase tracking-wide font-semibold mb-1">Tournament Setup</h2>
+      <p className="text-slate-500 text-sm mb-6 text-balance">Add your player pool, pick a bracket size, and set the target score.</p>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
+        <label className="text-slate-300 text-sm font-semibold mb-2 block">Player Pool ({playerPool.length})</label>
+        <div className="flex gap-2 mb-3">
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+            placeholder="Player name"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-base focus:outline-none focus:ring-2 focus:ring-[#d7f24c]"
+          />
+          <button
+            onClick={handleAdd}
+            className="bg-[#d7f24c] text-slate-950 rounded-xl px-4 py-3 font-bold active:scale-95 transition flex items-center gap-1"
+          >
+            <UserPlus size={20} />
+          </button>
+        </div>
+
+        {playerPool.length === 0 ? (
+          <p className="text-slate-600 text-sm italic py-2">No players yet. Add at least {numTeams * 2} to start a draft.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {playerPool.map((p) => (
+              <span key={p.id} className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full pl-3 pr-1.5 py-1.5 text-slate-200 text-sm font-medium">
+                {p.name}
+                <button onClick={() => removePlayer(p.id)} className="p-1 rounded-full hover:bg-slate-700 text-slate-400">
+                  <XIcon size={14} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
+        <label className="text-slate-300 text-sm font-semibold mb-2 block">Number of Teams</label>
+        <select
+          value={numTeams}
+          onChange={(e) => setNumTeams(Number(e.target.value))}
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:ring-2 focus:ring-[#d7f24c]"
+        >
+          <option value={2}>2 Teams (Final only)</option>
+          <option value={4}>4 Teams (Semis + Final)</option>
+          <option value={8}>8 Teams (Quarters, Semis, Final)</option>
+        </select>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
+        <label className="text-slate-300 text-sm font-semibold mb-2 block">Regulation Goal Score Limit</label>
+        <input
+          type="number"
+          min={1}
+          value={goalScore}
+          onChange={(e) => setGoalScore(Math.max(1, Number(e.target.value) || 1))}
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-base mb-3 focus:outline-none focus:ring-2 focus:ring-[#d7f24c]"
+        />
+        <div className="flex gap-2">
+          {[11, 15, 21].map((v) => (
+            <button
+              key={v}
+              onClick={() => setGoalScore(v)}
+              className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${goalScore === v ? 'bg-[#d7f24c] text-slate-950' : 'bg-slate-800 text-slate-300'}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 text-sm">
+        <p className="text-slate-400">
+          With <span className="text-white font-bold">{playerPool.length}</span> players across{' '}
+          <span className="text-white font-bold">{numTeams}</span> teams, each team gets{' '}
+          <span className="text-white font-bold">{teamSize}</span> player{teamSize === 1 ? '' : 's'} (
+          <span className="text-white font-bold">{teamSize}</span> regulation games per match).
+          {sittingOutCount > 0 && <span className="text-amber-400"> {sittingOutCount} player{sittingOutCount === 1 ? '' : 's'} will sit out (uneven split).</span>}
+        </p>
+        {!meetsMinimum && (
+          <p className="text-red-400 mt-2 font-semibold">Need at least {numTeams * 2} players for {numTeams} teams.</p>
+        )}
+        {meetsMinimum && !evenTeamSize && (
+          <p className="text-red-400 mt-2 font-semibold">Each team needs an EVEN number of players for doubles pairing (currently {teamSize}/team). Add or remove a player.</p>
+        )}
+      </div>
+
+      <button
+        disabled={!canInitialize}
+        onClick={onInitializeDraft}
+        className={`w-full py-4 rounded-2xl font-extrabold text-lg flex items-center justify-center gap-2 transition active:scale-95 ${canInitialize ? 'bg-[#d7f24c] text-slate-950 shadow-lg shadow-[#d7f24c]/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+      >
+        <Shuffle size={22} /> Initialize Draft
+      </button>
+    </div>
+  );
+}
+
+// ---------- Draft View ----------
+
+function DraftView({ teams, remainingPool, pickSequence, pickPointer, playersById, sittingOut, onDraftPlayer, onGenerateBracket }) {
+  const draftComplete = pickPointer >= pickSequence.length;
+  const currentTeamIdx = draftComplete ? null : pickSequence[pickPointer];
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
+      <h2 className="text-white text-3xl font-display uppercase tracking-wide font-semibold mb-1 flex items-center gap-2"><Shuffle size={24} className="text-[#d7f24c]" /> Snake Draft</h2>
+      {!draftComplete ? (
+        <p className="text-slate-400 text-sm mb-6">
+          Pick {pickPointer + 1} of {pickSequence.length} &mdash; it's{' '}
+          <span className="font-bold" style={{ color: teams[currentTeamIdx].color.accent }}>{teams[currentTeamIdx].name}'s</span> turn.
+        </p>
+      ) : (
+        <p className="text-[#d7f24c] text-sm mb-6 font-semibold">Draft complete! Every roster is locked in.</p>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        {teams.map((t, ti) => (
+          <div
+            key={t.id}
+            className={`rounded-2xl p-4 border-2 bg-slate-900 transition ${currentTeamIdx === ti ? `${t.color.border} shadow-lg` : 'border-slate-800'}`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <TeamDot color={t.color} />
+              <h3 className="text-white font-bold">{t.name}</h3>
+              {currentTeamIdx === ti && <span className="ml-auto text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full bg-slate-800" style={{ color: t.color.accent }}>On the clock</span>}
+            </div>
+            <ol className="space-y-1">
+              {t.draftOrder.map((pid, i) => (
+                <li key={pid} className="text-sm text-slate-300 flex items-center gap-2">
+                  <span className="w-5 h-5 flex items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold text-slate-400">{i + 1}</span>
+                  {playersById[pid]}
+                  {i === 0 && <span className="text-[10px] uppercase font-bold" style={{ color: t.color.accent }}>Captain</span>}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+      </div>
+
+      {!draftComplete && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6">
+          <p className="text-slate-300 text-sm font-semibold mb-3">Available Players</p>
+          <div className="flex flex-wrap gap-2">
+            {remainingPool.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onDraftPlayer(p.id)}
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full px-4 py-2.5 text-white text-sm font-semibold active:scale-95 transition"
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sittingOut.length > 0 && (
+        <p className="text-amber-400 text-xs mb-4">Sitting out this tournament: {sittingOut.map((p) => p.name).join(', ')}</p>
+      )}
+
+      {draftComplete && (
+        <button
+          onClick={onGenerateBracket}
+          className="w-full py-4 rounded-2xl font-extrabold text-lg bg-[#d7f24c] text-slate-950 shadow-lg shadow-[#d7f24c]/20 flex items-center justify-center gap-2 active:scale-95 transition"
+        >
+          <Trophy size={22} /> Generate Bracket
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---------- Bracket View ----------
+
+function MatchCard({ match, teams, onOpen }) {
+  const teamA = match.teamAId !== null ? teams.find((t) => t.id === match.teamAId) : null;
+  const teamB = match.teamBId !== null ? teams.find((t) => t.id === match.teamBId) : null;
+  const clickable = teamA && teamB;
+  const isComplete = match.status === 'complete';
+
+  return (
+    <button
+      onClick={() => clickable && onOpen()}
+      disabled={!clickable}
+      className={`w-full text-left bg-slate-900 border rounded-xl p-3 mb-3 transition ${clickable ? 'border-slate-700 active:scale-[0.98] hover:border-slate-600' : 'border-slate-800 opacity-50'}`}
+    >
+      {[
+        { team: teamA, score: match.gamesWonA, id: match.teamAId },
+        { team: teamB, score: match.gamesWonB, id: match.teamBId },
+      ].map((row, i) => (
+        <div key={i} className={`flex items-center justify-between py-1.5 px-2 rounded-lg ${isComplete && match.winnerId === row.id ? 'bg-slate-800' : ''}`}>
+          <span className="flex items-center gap-2 text-sm font-semibold truncate">
+            {row.team ? <TeamDot color={row.team.color} /> : <span className="w-3 h-3 rounded-full bg-slate-700" />}
+            <span className={row.team ? (isComplete && match.winnerId === row.id ? 'text-white' : 'text-slate-300') : 'text-slate-600 italic'}>
+              {row.team ? row.team.name : 'TBD'}
+            </span>
+            {isComplete && match.winnerId === row.id && <Trophy size={13} className="text-amber-400" />}
+          </span>
+          {match.games && <span className="text-slate-400 font-mono text-sm tabular-nums">{row.score}</span>}
+        </div>
+      ))}
+      {match.status === 'tied' && <p className="text-amber-400 text-[11px] font-bold mt-1 flex items-center gap-1"><Zap size={12} /> DREAMBREAKER</p>}
+      {match.status === 'in_progress' && <p className="text-cyan-400 text-[11px] font-bold mt-1">IN PROGRESS</p>}
+    </button>
+  );
+}
+
+function BracketView({ bracket, teams, onOpenMatch }) {
+  const totalRounds = bracket.rounds.length;
+  const champion = bracket.championId !== null ? teams.find((t) => t.id === bracket.championId) : null;
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6 pb-24">
+      {champion && (
+        <div className="mb-6 rounded-2xl p-5 bg-gradient-to-br from-amber-500/20 to-amber-900/10 border border-amber-500/40 text-center">
+          <Trophy size={36} className="mx-auto text-amber-400 mb-2" />
+          <p className="text-amber-300 text-xs uppercase tracking-widest font-bold">Champion</p>
+          <p className="text-white text-3xl font-display uppercase tracking-wide font-semibold">{champion.name}</p>
+        </div>
+      )}
+
+      <h2 className="text-white text-3xl font-display uppercase tracking-wide font-semibold mb-4 flex items-center gap-2"><Swords size={24} className="text-[#d7f24c]" /> Tournament Bracket</h2>
+
+      <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+        {bracket.rounds.map((round, ri) => (
+          <div key={ri} className="min-w-[260px] flex-1">
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">{roundName(totalRounds, ri)}</p>
+            {round.map((match, mi) => (
+              <MatchCard key={match.id} match={match} teams={teams} onOpen={() => onOpenMatch(ri, mi)} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Match Dashboard (Regulation) ----------
+
+function GameRow({ game, index, teamA, teamB, playersById, expanded, onToggle, onSave, readOnly }) {
+  const [scoreA, setScoreA] = useState(game.scoreA);
+  const [scoreB, setScoreB] = useState(game.scoreB);
+  const label = (ids) => ids.map((id) => playersById[id]).join(' & ');
+  const aWon = game.saved && game.scoreA > game.scoreB;
+  const bWon = game.saved && game.scoreB > game.scoreA;
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl mb-3 overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3 text-left">
+        <div>
+          <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wide">Game {index + 1}</p>
+          <p className="text-white text-sm font-semibold">
+            <span className={aWon ? 'text-[#d7f24c]' : ''}>{label(game.pairA)}</span>
+            <span className="text-slate-500"> vs </span>
+            <span className={bWon ? 'text-[#d7f24c]' : ''}>{label(game.pairB)}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {game.saved && (
+            <span className="font-mono text-slate-300 text-sm">{game.scoreA}-{game.scoreB}</span>
+          )}
+          {game.saved ? <Check size={18} className="text-[#d7f24c]" /> : <span className="w-2 h-2 rounded-full bg-amber-400" />}
+          {expanded ? <ChevronUp size={18} className="text-slate-500" /> : <ChevronDown size={18} className="text-slate-500" />}
+        </div>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-slate-800 pt-3">
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-slate-400 text-xs font-semibold block mb-1">{teamA.name}</label>
+              <input
+                type="number"
+                min={0}
+                disabled={game.saved || readOnly}
+                value={scoreA}
+                onChange={(e) => setScoreA(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-lg font-bold text-center disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#d7f24c]"
+              />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs font-semibold block mb-1">{teamB.name}</label>
+              <input
+                type="number"
+                min={0}
+                disabled={game.saved || readOnly}
+                value={scoreB}
+                onChange={(e) => setScoreB(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-lg font-bold text-center disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#d7f24c]"
+              />
+            </div>
+          </div>
+          {!game.saved && !readOnly && (
+            <button
+              onClick={() => onSave(scoreA, scoreB)}
+              className="w-full py-3 rounded-xl bg-[#d7f24c] text-slate-950 font-bold active:scale-95 transition"
+            >
+              Save Game
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchDashboard({ match, teamA, teamB, playersById, onSaveGame, onBack, onGoToDreambreaker, onGoToBracket, readOnly }) {
+  const [expandedId, setExpandedId] = useState(null);
+
+  if (!match.games) return null;
+  const allSaved = match.games.every((g) => g.saved);
+  const isTie = match.status === 'tied';
+  const isDone = match.status === 'complete';
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
+      <button onClick={onBack} className="flex items-center gap-1 text-slate-400 text-sm font-semibold mb-4">
+        <ArrowLeft size={16} /> Back to Bracket
+      </button>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-1">
+          <span className="flex items-center gap-2 font-bold text-white"><TeamDot color={teamA.color} />{teamA.name}</span>
+          <span className="text-4xl font-display text-white tabular-nums">{match.gamesWonA} - {match.gamesWonB}</span>
+          <span className="flex items-center gap-2 font-bold text-white">{teamB.name}<TeamDot color={teamB.color} /></span>
+        </div>
+        <p className="text-slate-500 text-xs text-center">Regulation &mdash; first to win the most of {match.games.length} games</p>
+      </div>
+
+      {isTie && (
+        <div className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-4 mb-4 text-center">
+          <p className="text-amber-400 font-extrabold flex items-center justify-center gap-2 mb-1"><Zap size={18} /> Match Tied! Dreambreaker Required.</p>
+          <button onClick={onGoToDreambreaker} className="mt-2 w-full py-3 rounded-xl bg-amber-500 text-slate-950 font-bold active:scale-95 transition">
+            Set Up Dreambreaker
+          </button>
+        </div>
+      )}
+
+      {isDone && !isTie && (
+        <div className="bg-[#d7f24c]/10 border border-[#d7f24c]/40 rounded-2xl p-4 mb-4 text-center">
+          <p className="text-[#d7f24c] font-extrabold flex items-center justify-center gap-2"><Trophy size={18} /> {match.winnerId === teamA.id ? teamA.name : teamB.name} wins the match!</p>
+          <button onClick={onGoToBracket} className="mt-3 w-full py-3 rounded-xl bg-[#d7f24c] text-slate-950 font-bold active:scale-95 transition">
+            Back to Bracket
+          </button>
+        </div>
+      )}
+
+      {match.games.map((g, i) => (
+        <GameRow
+          key={g.id}
+          game={g}
+          index={i}
+          teamA={teamA}
+          teamB={teamB}
+          playersById={playersById}
+          expanded={expandedId === g.id}
+          onToggle={() => setExpandedId(expandedId === g.id ? null : g.id)}
+          onSave={(a, b) => onSaveGame(g.id, a, b)}
+          readOnly={readOnly || allSaved}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---------- Dreambreaker Setup ----------
+
+function LineupBuilder({ team, lineup, locked, playersById, onMove, onLock }) {
+  return (
+    <div className={`rounded-2xl border-2 p-4 bg-slate-900 ${team.color.border}`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="flex items-center gap-2 font-bold text-white"><TeamDot color={team.color} />{team.name}</span>
+        {locked && <span className="flex items-center gap-1 text-[#d7f24c] text-xs font-bold"><Lock size={14} /> LOCKED</span>}
+      </div>
+      {locked ? (
+        <p className="text-slate-500 text-sm italic py-4 text-center">Lineup locked &mdash; hidden until Dreambreaker starts.</p>
+      ) : (
+        <ol className="space-y-2">
+          {lineup.map((pid, i) => (
+            <li key={pid} className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-300">{i + 1}</span>
+              <span className="text-white text-sm font-semibold flex-1">{playersById[pid]}</span>
+              <button disabled={i === 0} onClick={() => onMove(i, -1)} className="p-1.5 rounded-md bg-slate-700 disabled:opacity-30 text-slate-300"><ChevronUp size={16} /></button>
+              <button disabled={i === lineup.length - 1} onClick={() => onMove(i, 1)} className="p-1.5 rounded-md bg-slate-700 disabled:opacity-30 text-slate-300"><ChevronDown size={16} /></button>
+            </li>
+          ))}
+        </ol>
+      )}
+      {!locked && (
+        <button onClick={onLock} className="w-full mt-3 py-3 rounded-xl bg-slate-700 text-white font-bold flex items-center justify-center gap-2 active:scale-95 transition">
+          <Lock size={18} /> Lock Lineup
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DreambreakerSetupView({ match, teamA, teamB, playersById, onMove, onLock, onStart, onBack }) {
+  const db = match.dreambreaker;
+  const bothLocked = db.lockedA && db.lockedB;
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
+      <button onClick={onBack} className="flex items-center gap-1 text-slate-400 text-sm font-semibold mb-4">
+        <ArrowLeft size={16} /> Back to Bracket
+      </button>
+      <div className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-4 mb-6 text-center">
+        <p className="text-amber-400 font-extrabold flex items-center justify-center gap-2"><Zap size={18} /> Match Tied! Dreambreaker Required.</p>
+        <p className="text-slate-400 text-xs mt-1">Each captain sets a blind rotation order for their full roster.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <LineupBuilder team={teamA} lineup={db.lineupA} locked={db.lockedA} playersById={playersById} onMove={(i, d) => onMove('A', i, d)} onLock={() => onLock('A')} />
+        <LineupBuilder team={teamB} lineup={db.lineupB} locked={db.lockedB} playersById={playersById} onMove={(i, d) => onMove('B', i, d)} onLock={() => onLock('B')} />
+      </div>
+
+      <button
+        disabled={!bothLocked}
+        onClick={onStart}
+        className={`w-full py-4 rounded-2xl font-extrabold text-lg flex items-center justify-center gap-2 transition active:scale-95 ${bothLocked ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+      >
+        <Play size={22} /> Start Dreambreaker
+      </button>
+    </div>
+  );
+}
+
+// ---------- Dreambreaker Play ----------
+
+function DreambreakerPlayView({ match, teamA, teamB, playersById, showRotateBanner, onScore, onBack }) {
+  const db = match.dreambreaker;
+  const K = teamA.draftOrder.length;
+  const activeAId = db.lineupA[db.rotationIndex % K];
+  const activeBId = db.lineupB[db.rotationIndex % K];
+
+  if (db.completed) {
+    const winner = db.winnerId === teamA.id ? teamA : teamB;
+    return (
+      <div className="max-w-lg mx-auto px-4 py-10 text-center">
+        <Trophy size={48} className="mx-auto text-amber-400 mb-3" />
+        <p className="text-amber-300 text-xs uppercase tracking-widest font-bold">Dreambreaker Complete</p>
+        <p className="text-white text-3xl font-extrabold mb-1">{winner.name} wins!</p>
+        <p className="text-slate-400 font-mono text-xl mb-6">{db.scoreA} - {db.scoreB}</p>
+        <button onClick={onBack} className="w-full py-4 rounded-2xl font-extrabold text-lg bg-[#d7f24c] text-slate-950 active:scale-95 transition">
+          Back to Bracket
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-lg mx-auto px-4 py-6 pb-24 relative">
+      <button onClick={onBack} className="flex items-center gap-1 text-slate-400 text-sm font-semibold mb-4">
+        <ArrowLeft size={16} /> Back to Bracket
+      </button>
+
+      {showRotateBanner && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-slate-950 font-extrabold px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-pulse">
+          <Shuffle size={20} /> ROTATE PLAYERS
+        </div>
+      )}
+
+      <div className="bg-gradient-to-br from-amber-500/10 to-slate-900 border border-amber-500/30 rounded-2xl p-4 mb-6 text-center">
+        <p className="text-amber-400 text-xs uppercase tracking-widest font-bold mb-1 flex items-center justify-center gap-1"><Zap size={14} /> Dreambreaker &mdash; to 21, win by 2</p>
+        <p className="text-slate-500 text-xs">Current matchup</p>
+        <p className="text-white text-lg font-bold">{playersById[activeAId]} <span className="text-slate-500">vs</span> {playersById[activeBId]}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="text-center">
+          <p className="text-sm font-bold mb-2 flex items-center justify-center gap-1.5 text-white"><TeamDot color={teamA.color} />{teamA.name}</p>
+          <p className="text-7xl font-display text-white mb-4 tabular-nums">{db.scoreA}</p>
+          <button
+            onClick={() => onScore('A')}
+            className="w-full aspect-square rounded-3xl text-4xl font-black text-slate-950 active:scale-95 transition shadow-xl"
+            style={{ backgroundColor: teamA.color.accent }}
+          >
+            +1
+          </button>
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-bold mb-2 flex items-center justify-center gap-1.5 text-white"><TeamDot color={teamB.color} />{teamB.name}</p>
+          <p className="text-7xl font-display text-white mb-4 tabular-nums">{db.scoreB}</p>
+          <button
+            onClick={() => onScore('B')}
+            className="w-full aspect-square rounded-3xl text-4xl font-black text-slate-950 active:scale-95 transition shadow-xl"
+            style={{ backgroundColor: teamB.color.accent }}
+          >
+            +1
+          </button>
+        </div>
+      </div>
+      <p className="text-slate-600 text-xs text-center mt-6">Rotation advances automatically every 4 combined points.</p>
+    </div>
+  );
+}
+
+// ---------- Leaderboard ----------
+
+function LeaderboardView({ globalStats }) {
+  const rows = Object.values(globalStats).sort((a, b) => {
+    const wrA = a.matchesPlayed ? a.wins / a.matchesPlayed : 0;
+    const wrB = b.matchesPlayed ? b.wins / b.matchesPlayed : 0;
+    return wrB - wrA || b.wins - a.wins;
+  });
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
+      <h2 className="text-white text-3xl font-display uppercase tracking-wide font-semibold mb-1 flex items-center gap-2"><Trophy size={24} className="text-amber-400" /> All-Time Leaderboard</h2>
+      <p className="text-slate-500 text-sm mb-6 text-balance">Persisted across every tournament played on this device.</p>
+
+      {rows.length === 0 ? (
+        <p className="text-slate-600 italic">No completed matches yet. Stats appear here once a match finishes.</p>
+      ) : (
+        <div className="overflow-x-auto bg-slate-900 border border-slate-800 rounded-2xl">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-slate-500 text-xs uppercase tracking-wide border-b border-slate-800">
+                <th className="text-left py-3 px-4">Player</th>
+                <th className="text-right py-3 px-3">MP</th>
+                <th className="text-right py-3 px-3">Win %</th>
+                <th className="text-right py-3 px-3">Pts Won</th>
+                <th className="text-right py-3 px-3">Pts Lost</th>
+                <th className="text-right py-3 px-4">DB +/-</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b border-slate-800/60 last:border-0">
+                  <td className="py-3 px-4 text-white font-semibold">{r.name}</td>
+                  <td className="py-3 px-3 text-right text-slate-300 font-mono tabular-nums">{r.matchesPlayed}</td>
+                  <td className="py-3 px-3 text-right text-slate-300 font-mono tabular-nums">{r.matchesPlayed ? Math.round((r.wins / r.matchesPlayed) * 100) : 0}%</td>
+                  <td className="py-3 px-3 text-right text-slate-300 font-mono tabular-nums">{r.pointsWon}</td>
+                  <td className="py-3 px-3 text-right text-slate-300 font-mono tabular-nums">{r.pointsLost}</td>
+                  <td className={`py-3 px-4 text-right font-mono font-bold tabular-nums ${r.dreambreakerDiff > 0 ? 'text-[#d7f24c]' : r.dreambreakerDiff < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                    {r.dreambreakerDiff > 0 ? '+' : ''}{r.dreambreakerDiff}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Root App ----------
+
+function App() {
+  const [view, setView] = useState('setup');
+  const [playerPool, setPlayerPool] = useState([]);
+  const [nextPlayerId, setNextPlayerId] = useState(1);
+  const [numTeams, setNumTeams] = useState(4);
+  const [goalScore, setGoalScore] = useState(11);
+
+  const [teams, setTeams] = useState([]);
+  const [playersById, setPlayersById] = useState({});
+  const [remainingPool, setRemainingPool] = useState([]);
+  const [pickSequence, setPickSequence] = useState([]);
+  const [pickPointer, setPickPointer] = useState(0);
+  const [sittingOut, setSittingOut] = useState([]);
+
+  const [bracket, setBracket] = useState(null);
+  const [activePath, setActivePath] = useState(null);
+
+  const [globalStats, setGlobalStats] = useState({});
+  const [modal, setModal] = useState(null);
+  const [showRotateBanner, setShowRotateBanner] = useState(false);
+  const rotateTimeoutRef = useRef(null);
+  const hydrated = useRef(false);
+
+  // Load persisted data on mount
+  useEffect(() => {
+    setGlobalStats(loadGlobalStats());
+    const saved = loadTournamentState();
+    if (saved) {
+      setView(saved.view || 'setup');
+      setPlayerPool(saved.playerPool || []);
+      setNextPlayerId(saved.nextPlayerId || 1);
+      setNumTeams(saved.numTeams || 4);
+      setGoalScore(saved.goalScore || 11);
+      setTeams(saved.teams || []);
+      setPlayersById(saved.playersById || {});
+      setRemainingPool(saved.remainingPool || []);
+      setPickSequence(saved.pickSequence || []);
+      setPickPointer(saved.pickPointer || 0);
+      setSittingOut(saved.sittingOut || []);
+      setBracket(saved.bracket || null);
+      setActivePath(saved.activePath || null);
+    }
+    hydrated.current = true;
+    return () => { if (rotateTimeoutRef.current) clearTimeout(rotateTimeoutRef.current); };
+  }, []);
+
+  // Persist tournament state on change
+  useEffect(() => {
+    if (!hydrated.current) return;
+    saveTournamentState({
+      view, playerPool, nextPlayerId, numTeams, goalScore, teams, playersById,
+      remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath,
+    });
+  }, [view, playerPool, nextPlayerId, numTeams, goalScore, teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath]);
+
+  function addPlayer(name) {
+    setPlayerPool((prev) => [...prev, { id: nextPlayerId, name }]);
+    setNextPlayerId((n) => n + 1);
+  }
+
+  function removePlayer(id) {
+    setPlayerPool((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function handleInitializeDraft() {
+    const result = initializeDraftState(playerPool, numTeams);
+    setTeams(result.teams);
+    setRemainingPool(result.remainingPool);
+    setPickSequence(result.pickSequence);
+    setPickPointer(0);
+    setPlayersById(result.playersById);
+    setSittingOut(result.sittingOut);
+    setView('draft');
+  }
+
+  function draftPlayer(playerId) {
+    if (pickPointer >= pickSequence.length) return;
+    const teamIdx = pickSequence[pickPointer];
+    setTeams((prev) => prev.map((t, i) => (i === teamIdx ? { ...t, draftOrder: [...t.draftOrder, playerId] } : t)));
+    setRemainingPool((prev) => prev.filter((p) => p.id !== playerId));
+    setPickPointer((p) => p + 1);
+  }
+
+  function handleGenerateBracket() {
+    setBracket(generateBracket(teams));
+    setView('bracket');
+  }
+
+  function getActiveMatch() {
+    if (!activePath || !bracket) return null;
+    return bracket.rounds[activePath.round][activePath.idx];
+  }
+
+  function openMatch(roundIdx, matchIdx) {
+    const match = bracket.rounds[roundIdx][matchIdx];
+    if (match.teamAId === null || match.teamBId === null) return;
+    setActivePath({ round: roundIdx, idx: matchIdx });
+
+    let workingBracket = bracket;
+    if (!match.games) {
+      const teamA = teams.find((t) => t.id === match.teamAId);
+      const teamB = teams.find((t) => t.id === match.teamBId);
+      const games = generateGames(teamA, teamB, goalScore);
+      const nb = JSON.parse(JSON.stringify(bracket));
+      nb.rounds[roundIdx][matchIdx].games = games;
+      nb.rounds[roundIdx][matchIdx].status = 'in_progress';
+      workingBracket = nb;
+      setBracket(nb);
+    }
+
+    const current = workingBracket.rounds[roundIdx][matchIdx];
+    if (current.status === 'complete') { setView('match'); return; }
+    if (current.status === 'tied') {
+      setView(current.dreambreaker && current.dreambreaker.started ? 'dreambreakerPlay' : 'dreambreakerSetup');
+      return;
+    }
+    setView('match');
+  }
+
+  function applyMatchResultToStats(teamA, teamB, winnerId, games, db) {
+    const stats = loadGlobalStats();
+    function ensure(id) {
+      const name = playersById[id];
+      const key = String(name).trim().toLowerCase();
+      if (!stats[key]) stats[key] = { name, matchesPlayed: 0, wins: 0, losses: 0, pointsWon: 0, pointsLost: 0, dreambreakerDiff: 0 };
+      return stats[key];
+    }
+    teamA.draftOrder.forEach((id) => {
+      const s = ensure(id);
+      s.matchesPlayed += 1;
+      if (winnerId === teamA.id) s.wins += 1; else s.losses += 1;
+    });
+    teamB.draftOrder.forEach((id) => {
+      const s = ensure(id);
+      s.matchesPlayed += 1;
+      if (winnerId === teamB.id) s.wins += 1; else s.losses += 1;
+    });
+    games.forEach((g) => {
+      if (!g.saved) return;
+      g.pairA.forEach((id) => { const s = ensure(id); s.pointsWon += g.scoreA; s.pointsLost += g.scoreB; });
+      g.pairB.forEach((id) => { const s = ensure(id); s.pointsWon += g.scoreB; s.pointsLost += g.scoreA; });
+    });
+    if (db && db.completed) {
+      Object.entries(db.playerStats).forEach(([idStr, ps]) => {
+        const s = ensure(Number(idStr));
+        s.pointsWon += ps.pointsWon;
+        s.pointsLost += ps.pointsLost;
+        s.dreambreakerDiff += ps.pointsWon - ps.pointsLost;
+      });
+    }
+    saveGlobalStatsToStorage(stats);
+    setGlobalStats(stats);
+  }
+
+  function handleSaveGame(gameId, scoreA, scoreB) {
+    const { round, idx } = activePath;
+    const match = bracket.rounds[round][idx];
+    const teamA = teams.find((t) => t.id === match.teamAId);
+    const teamB = teams.find((t) => t.id === match.teamBId);
+    const updatedGames = match.games.map((g) => (g.id === gameId ? { ...g, scoreA: Number(scoreA), scoreB: Number(scoreB), saved: true } : g));
+    const gamesWonA = updatedGames.filter((g) => g.saved && g.scoreA > g.scoreB).length;
+    const gamesWonB = updatedGames.filter((g) => g.saved && g.scoreB > g.scoreA).length;
+    const allSaved = updatedGames.every((g) => g.saved);
+
+    let nb = JSON.parse(JSON.stringify(bracket));
+    const m = nb.rounds[round][idx];
+    m.games = updatedGames;
+    m.gamesWonA = gamesWonA;
+    m.gamesWonB = gamesWonB;
+
+    if (allSaved) {
+      if (gamesWonA === gamesWonB) {
+        m.status = 'tied';
+        m.dreambreaker = {
+          lineupA: [...teamA.draftOrder],
+          lineupB: [...teamB.draftOrder],
+          lockedA: false,
+          lockedB: false,
+          started: false,
+          scoreA: 0,
+          scoreB: 0,
+          rotationIndex: 0,
+          lastRotationTrigger: 0,
+          playerStats: {},
+          completed: false,
+          winnerId: null,
+        };
+      } else {
+        const winnerId = gamesWonA > gamesWonB ? match.teamAId : match.teamBId;
+        nb = advanceWinner(nb, round, idx, winnerId);
+        applyMatchResultToStats(teamA, teamB, winnerId, updatedGames, null);
+      }
+    } else {
+      m.status = 'in_progress';
+    }
+    setBracket(nb);
+  }
+
+  function moveLineup(team, index, dir) {
+    const { round, idx } = activePath;
+    const nb = JSON.parse(JSON.stringify(bracket));
+    const arr = nb.rounds[round][idx].dreambreaker[team === 'A' ? 'lineupA' : 'lineupB'];
+    const to = index + dir;
+    if (to < 0 || to >= arr.length) return;
+    [arr[index], arr[to]] = [arr[to], arr[index]];
+    setBracket(nb);
+  }
+
+  function lockLineup(team) {
+    const { round, idx } = activePath;
+    const nb = JSON.parse(JSON.stringify(bracket));
+    nb.rounds[round][idx].dreambreaker[team === 'A' ? 'lockedA' : 'lockedB'] = true;
+    setBracket(nb);
+  }
+
+  function startDreambreaker() {
+    const { round, idx } = activePath;
+    const nb = JSON.parse(JSON.stringify(bracket));
+    nb.rounds[round][idx].dreambreaker.started = true;
+    setBracket(nb);
+    setView('dreambreakerPlay');
+  }
+
+  function triggerRotateBanner() {
+    setShowRotateBanner(true);
+    if (rotateTimeoutRef.current) clearTimeout(rotateTimeoutRef.current);
+    rotateTimeoutRef.current = setTimeout(() => setShowRotateBanner(false), 2500);
+  }
+
+  function scoreDreambreakerPoint(scoringTeam) {
+    const { round, idx } = activePath;
+    const match = bracket.rounds[round][idx];
+    const teamA = teams.find((t) => t.id === match.teamAId);
+    const teamB = teams.find((t) => t.id === match.teamBId);
+    const db = match.dreambreaker;
+    const K = teamA.draftOrder.length;
+    const activeAId = db.lineupA[db.rotationIndex % K];
+    const activeBId = db.lineupB[db.rotationIndex % K];
+    const newScoreA = db.scoreA + (scoringTeam === 'A' ? 1 : 0);
+    const newScoreB = db.scoreB + (scoringTeam === 'B' ? 1 : 0);
+    const combined = newScoreA + newScoreB;
+    const willRotate = combined > 0 && combined % 4 === 0 && combined !== db.lastRotationTrigger;
+    const newRotationIndex = willRotate ? db.rotationIndex + 1 : db.rotationIndex;
+
+    let nb = JSON.parse(JSON.stringify(bracket));
+    const m = nb.rounds[round][idx];
+    const ps = m.dreambreaker.playerStats;
+    function bump(id, field) {
+      const key = String(id);
+      if (!ps[key]) ps[key] = { pointsWon: 0, pointsLost: 0 };
+      ps[key][field] += 1;
+    }
+    if (scoringTeam === 'A') { bump(activeAId, 'pointsWon'); bump(activeBId, 'pointsLost'); }
+    else { bump(activeBId, 'pointsWon'); bump(activeAId, 'pointsLost'); }
+
+    m.dreambreaker.scoreA = newScoreA;
+    m.dreambreaker.scoreB = newScoreB;
+    m.dreambreaker.rotationIndex = newRotationIndex;
+    if (willRotate) m.dreambreaker.lastRotationTrigger = combined;
+
+    const isWin = (newScoreA >= 21 || newScoreB >= 21) && Math.abs(newScoreA - newScoreB) >= 2;
+
+    if (isWin) {
+      const winnerId = newScoreA > newScoreB ? match.teamAId : match.teamBId;
+      m.dreambreaker.completed = true;
+      m.dreambreaker.winnerId = winnerId;
+      nb = advanceWinner(nb, round, idx, winnerId);
+      applyMatchResultToStats(teamA, teamB, winnerId, match.games, nb.rounds[round][idx].dreambreaker);
+    }
+
+    setBracket(nb);
+    if (willRotate && !isWin) triggerRotateBanner();
+  }
+
+  function requestClearTournament() {
+    setModal({
+      title: 'Clear Tournament?',
+      message: 'This resets players, the draft, and the bracket. Your all-time leaderboard stats are kept.',
+      confirmLabel: 'Clear It',
+      onConfirm: () => {
+        setPlayerPool([]);
+        setNextPlayerId(1);
+        setNumTeams(4);
+        setGoalScore(11);
+        setTeams([]);
+        setPlayersById({});
+        setRemainingPool([]);
+        setPickSequence([]);
+        setPickPointer(0);
+        setSittingOut([]);
+        setBracket(null);
+        setActivePath(null);
+        setView('setup');
+        clearTournamentState();
+        setModal(null);
+      },
+    });
+  }
+
+  function requestWipeStats() {
+    setModal({
+      title: 'Wipe Global Stats?',
+      message: 'This permanently deletes the all-time leaderboard for every player. This cannot be undone.',
+      confirmLabel: 'Wipe Stats',
+      onConfirm: () => {
+        saveGlobalStatsToStorage({});
+        setGlobalStats({});
+        setModal(null);
+      },
+    });
+  }
+
+  const activeMatch = getActiveMatch();
+  const activeTeamA = activeMatch ? teams.find((t) => t.id === activeMatch.teamAId) : null;
+  const activeTeamB = activeMatch ? teams.find((t) => t.id === activeMatch.teamBId) : null;
+
+  return (
+    <div className="min-h-screen bg-slate-950">
+      <Header hasTournament={teams.length > 0} view={view} setView={setView} onBracketTab={() => setView(bracket ? 'bracket' : 'draft')} onClear={requestClearTournament} onWipeStats={requestWipeStats} />
+
+      {view === 'setup' && (
+        <SetupView
+          playerPool={playerPool}
+          addPlayer={addPlayer}
+          removePlayer={removePlayer}
+          numTeams={numTeams}
+          setNumTeams={setNumTeams}
+          goalScore={goalScore}
+          setGoalScore={setGoalScore}
+          onInitializeDraft={handleInitializeDraft}
+        />
+      )}
+
+      {view === 'draft' && (
+        <DraftView
+          teams={teams}
+          remainingPool={remainingPool}
+          pickSequence={pickSequence}
+          pickPointer={pickPointer}
+          playersById={playersById}
+          sittingOut={sittingOut}
+          onDraftPlayer={draftPlayer}
+          onGenerateBracket={handleGenerateBracket}
+        />
+      )}
+
+      {view === 'bracket' && bracket && (
+        <BracketView bracket={bracket} teams={teams} onOpenMatch={openMatch} />
+      )}
+
+      {view === 'match' && activeMatch && (
+        <MatchDashboard
+          key={activeMatch.id}
+          match={activeMatch}
+          teamA={activeTeamA}
+          teamB={activeTeamB}
+          playersById={playersById}
+          onSaveGame={handleSaveGame}
+          onBack={() => setView('bracket')}
+          onGoToDreambreaker={() => setView('dreambreakerSetup')}
+          onGoToBracket={() => setView('bracket')}
+          readOnly={activeMatch.status === 'complete'}
+        />
+      )}
+
+      {view === 'dreambreakerSetup' && activeMatch && (
+        <DreambreakerSetupView
+          match={activeMatch}
+          teamA={activeTeamA}
+          teamB={activeTeamB}
+          playersById={playersById}
+          onMove={moveLineup}
+          onLock={lockLineup}
+          onStart={startDreambreaker}
+          onBack={() => setView('bracket')}
+        />
+      )}
+
+      {view === 'dreambreakerPlay' && activeMatch && (
+        <DreambreakerPlayView
+          match={activeMatch}
+          teamA={activeTeamA}
+          teamB={activeTeamB}
+          playersById={playersById}
+          showRotateBanner={showRotateBanner}
+          onScore={scoreDreambreakerPoint}
+          onBack={() => setView('bracket')}
+        />
+      )}
+
+      {view === 'leaderboard' && <LeaderboardView globalStats={globalStats} />}
+
+      <ConfirmModal modal={modal} onCancel={() => setModal(null)} />
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
