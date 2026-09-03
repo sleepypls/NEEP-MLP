@@ -10,10 +10,23 @@ import {
 const STORAGE_KEY_FIREBASE_CONFIG = 'neep_firebase_config_v1';
 const DEFAULT_CLUB_ID = 'neep-pickleball';
 
-// Try loading config from env vars or localStorage
+export const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCkbXjIwd0BLRpR3Q5YkUR3p8DXfJQa5B0",
+  authDomain: "neep-pb-tracker.firebaseapp.com",
+  projectId: "neep-pb-tracker",
+  storageBucket: "neep-pb-tracker.firebasestorage.app",
+  messagingSenderId: "483596216306",
+  appId: "1:483596216306:web:40f0f884fbc2436257ed6b",
+  measurementId: "G-VWBYTCV1JE"
+};
+
+// Try loading config from env vars, localStorage, or fallback to default
 export function getFirebaseConfig() {
   try {
     const fromStorage = localStorage.getItem(STORAGE_KEY_FIREBASE_CONFIG);
+    if (fromStorage === 'disabled') {
+      return null;
+    }
     if (fromStorage) {
       const parsed = JSON.parse(fromStorage);
       if (parsed && parsed.apiKey && parsed.projectId) return parsed;
@@ -28,13 +41,14 @@ export function getFirebaseConfig() {
       apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
       authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
       projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
+      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`,
       messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
       appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+      measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
     };
   }
 
-  return null;
+  return DEFAULT_FIREBASE_CONFIG;
 }
 
 export function saveFirebaseConfig(config) {
@@ -42,7 +56,7 @@ export function saveFirebaseConfig(config) {
     if (config) {
       localStorage.setItem(STORAGE_KEY_FIREBASE_CONFIG, JSON.stringify(config));
     } else {
-      localStorage.removeItem(STORAGE_KEY_FIREBASE_CONFIG);
+      localStorage.setItem(STORAGE_KEY_FIREBASE_CONFIG, 'disabled');
     }
   } catch (e) {
     // ignore

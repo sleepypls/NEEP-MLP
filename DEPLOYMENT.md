@@ -29,22 +29,23 @@ This guide explains how to host your **NEEP-MLP Pickleball Tracker** online for 
 Firebase provides real-time WebSockets so that when scores are updated on court, every spectator's phone updates instantly without page refreshes.
 
 1. Go to **[console.firebase.google.com](https://console.firebase.google.com/)** and sign in with your Google account.
-2. Click **"Add project"** and give it a name (e.g., `neep-pickleball`). (Google Analytics is optional).
+2. Click **"Add project"** and give it a name (`neep-pb-tracker`). (Google Analytics is optional).
 3. In the project dashboard, click **"Firestore Database"** in the left sidebar &rarr; **"Create database"**.
    - Choose your nearest cloud region (e.g. `us-central` or `australia-southeast1`).
    - Start in **Test mode** (allows read/writes during tournaments).
 4. Register a Web App:
    - In Project Overview, click the Web icon (`</>`).
    - Name it `NEEP Tracker` &rarr; click **"Register app"**.
-   - Copy the `firebaseConfig` snippet. It will look like this:
+   - Copy the `firebaseConfig` snippet:
      ```json
      {
-       "apiKey": "AIzaSy...",
-       "authDomain": "neep-pickleball.firebaseapp.com",
-       "projectId": "neep-pickleball",
-       "storageBucket": "neep-pickleball.appspot.com",
-       "messagingSenderId": "...",
-       "appId": "..."
+       "apiKey": "AIzaSyCkbXjIwd0BLRpR3Q5YkUR3p8DXfJQa5B0",
+       "authDomain": "neep-pb-tracker.firebaseapp.com",
+       "projectId": "neep-pb-tracker",
+       "storageBucket": "neep-pb-tracker.firebasestorage.app",
+       "messagingSenderId": "483596216306",
+       "appId": "1:483596216306:web:40f0f884fbc2436257ed6b",
+       "measurementId": "G-VWBYTCV1JE"
      }
      ```
 
@@ -52,15 +53,9 @@ Firebase provides real-time WebSockets so that when scores are updated on court,
 
 ## Step 3: Connect Firebase to Your App
 
-You can connect Firebase in either of two ways:
+**Pre-configured!** Your app is already pre-configured to automatically connect to this Firebase project on launch.
 
-### Method 1: Directly in the Web App (Easiest)
-1. Open your deployed site (or local app).
-2. Click the cloud pill in the header (**"Local"** / 🟡).
-3. Paste the `firebaseConfig` JSON into the text box.
-4. Click **"Save & Connect"**. The pill will turn green (**"Cloud Live"** 🟢) and real-time multiplayer syncing is active immediately!
-
-### Method 2: Via Environment Variables in Vercel
+If you ever want to change projects or customize settings in Vercel:
 In your Vercel Project Settings &rarr; **Environment Variables**, add:
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_PROJECT_ID`
