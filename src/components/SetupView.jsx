@@ -43,14 +43,14 @@ export function SetupView({
       {/* Club Hero Card */}
       <div className="flex items-center gap-4 bg-gradient-to-r from-slate-900 via-slate-900/95 to-blue-950/40 border border-slate-800 rounded-3xl p-4 mb-6 shadow-xl relative overflow-hidden">
         <div className="w-16 h-16 rounded-2xl bg-slate-950 border border-slate-750/80 p-1 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-lg shadow-black/60">
-          <img src="/logo.png" alt="NLP - NEEP Score Tracker Logo" className="w-full h-full object-contain" />
+          <img src="/logo.png" alt="NEEP-NLP Score Tracker Logo" className="w-full h-full object-contain" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-display font-black tracking-wider text-white text-xl">NLP</span>
-            <span className="text-[10px] font-mono text-[#d7f24c] bg-[#d7f24c]/10 border border-[#d7f24c]/30 px-2 py-0.5 rounded-full font-bold">NEEP SCORE TRACKER</span>
+            <span className="font-display font-black tracking-wider text-white text-xl">NEEP-NLP</span>
+            <span className="text-[10px] font-mono text-[#d7f24c] bg-[#d7f24c]/10 border border-[#d7f24c]/30 px-2 py-0.5 rounded-full font-bold">SCORE TRACKER</span>
           </div>
-          <p className="text-slate-400 text-xs mt-0.5">Major League Pickleball Tournament & Live Scoring</p>
+          <p className="text-slate-400 text-xs mt-0.5">Tournament Score Tracker & Live Scoring</p>
         </div>
       </div>
 

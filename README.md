@@ -1,10 +1,14 @@
-# NLP - NEEP Score Tracker 🏓
+# NEEP-NLP - Score Tracker 🏓
 
 <p align="center">
-  <img src="public/logo.png" alt="NLP - NEEP Score Tracker Logo" width="180" />
+  <img src="public/logo.png" alt="NEEP-NLP Score Tracker Logo" width="180" />
 </p>
 
-A modern, real-time tournament scoring system built for Major League Pickleball (MLP) team formats.
+<p align="center">
+  <strong>Version: 2.0 Beta</strong>
+</p>
+
+A modern, real-time tournament score tracker with team snake drafting, dynamic court rotations, and live multiplayer scoring.
 
 ## Features
 - **Snake Draft**: Real-time team drafting with support for uneven rosters and sit-out rotations.

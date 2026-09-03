@@ -37,20 +37,20 @@ export function Header({
             <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700/60 p-0.5 flex items-center justify-center overflow-hidden shadow-lg shadow-black/40 group-hover:scale-105 group-hover:border-[#d7f24c]/40 transition duration-150">
               <img
                 src="/logo.png"
-                alt="NLP - NEEP Score Tracker Logo"
+                alt="NEEP-NLP Score Tracker Logo"
                 className="w-full h-full object-contain"
               />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-black tracking-wider text-white text-base leading-none">
-                  NLP
+                  NEEP-NLP
                 </span>
-                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
-                  v2.0
+                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded font-semibold">
+                  v2.0 Beta
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">NEEP Score Tracker</p>
+              <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">Score Tracker</p>
             </div>
           </button>
         </div>

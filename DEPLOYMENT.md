@@ -1,6 +1,6 @@
 # Hosting & Deployment Guide
 
-This guide explains how to host your **NLP - NEEP Score Tracker** online for free, connect **Google Firebase Firestore** for real-time multiplayer scoring, and share links with players.
+This guide explains how to host your **NEEP-NLP Score Tracker (v2.0 Beta)** online for free, connect **Google Firebase Firestore** for real-time multiplayer scoring, and share links with players.
 
 ---
 
@@ -11,13 +11,13 @@ This guide explains how to host your **NLP - NEEP Score Tracker** online for fre
    ```bash
    git init
    git add .
-   git commit -m "NEEP-MLP v2.0 - Vite + Firebase"
+   git commit -m "NEEP-NLP v2.0 Beta - Vite + Firebase"
    git branch -M main
    git remote add origin https://github.com/<your-username>/<your-repo-name>.git
    git push -u origin main
    ```
 2. Go to **[vercel.com](https://vercel.com/)** and sign in with GitHub.
-3. Click **"Add New Project"** &rarr; Select your `NEEP-MLP` repository.
+3. Click **"Add New Project"** &rarr; Select your repository.
 4. Framework Preset will automatically detect **Vite**.
 5. Click **"Deploy"**. Within 60 seconds, your site will be live at:
    `https://neep-nlp.vercel.app`
