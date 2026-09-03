@@ -73,6 +73,7 @@ export default function App() {
   const [partnershipStats, setPartnershipStats] = useState({});
   const [priorStats, setPriorStats] = useState({});
   const [priorPartnershipStats, setPriorPartnershipStats] = useState({});
+  const [savedPlayers, setSavedPlayers] = useState([]);
   // Room & Admin State
   const [roomId, setRoomId] = useState(() => {
     try {
