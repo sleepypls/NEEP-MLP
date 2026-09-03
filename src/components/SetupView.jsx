@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { UserPlus, Users, X, Shuffle, Zap, ShieldAlert, Crown, Check } from 'lucide-react';
+import { UserPlus, Users, X, Shuffle, Zap, ShieldAlert, Crown, Check, Lock, Sparkles, KeyRound } from 'lucide-react';
+import { generateRoomId, generatePin, sanitizeRoomId } from '../utils/room';
 
 export function SetupView({
   playerPool,
@@ -21,6 +22,10 @@ export function SetupView({
   setCaptainMode,
   selectedCaptainIds = [],
   setSelectedCaptainIds,
+  roomId,
+  setRoomId,
+  adminPin,
+  setAdminPin,
   onInitializeDraft,
   isAdmin,
 }) {
@@ -188,6 +193,70 @@ export function SetupView({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Session & Privacy Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4 shadow-xl">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-slate-200 text-sm font-bold flex items-center gap-1.5">
+            <Lock size={15} className="text-amber-400" /> Private Session & PIN
+          </label>
+          <span className="text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+            Isolated Tournament
+          </span>
+        </div>
+        <p className="text-slate-400 text-xs mb-3">
+          Share your Room ID and Spectator link with players. Only users with this Admin PIN can record scores.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Room ID</span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setRoomId(generateRoomId('NLP'))}
+                  className="text-[11px] text-[#d7f24c] hover:underline font-semibold flex items-center gap-0.5"
+                >
+                  <Sparkles size={11} /> New ID
+                </button>
+              )}
+            </div>
+            <input
+              type="text"
+              disabled={!isAdmin}
+              value={roomId || ''}
+              onChange={(e) => setRoomId(sanitizeRoomId(e.target.value))}
+              placeholder="e.g. NLP-8492"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm uppercase focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Scorekeeper PIN</span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setAdminPin(generatePin())}
+                  className="text-[11px] text-amber-400 hover:underline font-semibold flex items-center gap-0.5"
+                >
+                  <KeyRound size={11} /> New PIN
+                </button>
+              )}
+            </div>
+            <input
+              type="text"
+              maxLength={8}
+              disabled={!isAdmin}
+              value={adminPin || ''}
+              onChange={(e) => setAdminPin(e.target.value.replace(/\D/g, ''))}
+              placeholder="4-digit PIN"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Number of Teams */}

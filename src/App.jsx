@@ -28,12 +28,25 @@ import {
   saveStatsToCloud,
   saveKnownPlayersToCloud,
 } from './services/firebase';
+import { RoomModal } from './components/RoomModal';
+import {
+  DEFAULT_ROOM_ID,
+  DEFAULT_ADMIN_PIN,
+  generateRoomId,
+  generatePin,
+  sanitizeRoomId,
+} from './utils/room';
 
-const STORAGE_KEY_STATS = 'neep-pickleball-global-stats-v1';
-const STORAGE_KEY_TOURNAMENT = 'neep-pickleball-tournament-state-v1';
-const STORAGE_KEY_PARTNERSHIPS = 'neep-pickleball-partnerships-v1';
+function getTournStorageKey(rid) {
+  return rid === DEFAULT_ROOM_ID ? 'neep-pickleball-tournament-state-v1' : `neep_tourn_${rid}_v1`;
+}
+function getStatsStorageKey(rid) {
+  return rid === DEFAULT_ROOM_ID ? 'neep-pickleball-global-stats-v1' : `neep_stats_${rid}_v1`;
+}
+function getPairsStorageKey(rid) {
+  return rid === DEFAULT_ROOM_ID ? 'neep-pickleball-partnerships-v1' : `neep_pairs_${rid}_v1`;
+}
 const STORAGE_KEY_KNOWN_PLAYERS = 'neep-pickleball-known-players-v1';
-const DEFAULT_ADMIN_PIN = '1234';
 
 export default function App() {
   const [view, setView] = useState('setup');
@@ -60,7 +73,17 @@ export default function App() {
   const [partnershipStats, setPartnershipStats] = useState({});
   const [priorStats, setPriorStats] = useState({});
   const [priorPartnershipStats, setPriorPartnershipStats] = useState({});
-  const [savedPlayers, setSavedPlayers] = useState([]);
+  // Room & Admin State
+  const [roomId, setRoomId] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlRoom = params.get('room');
+      if (urlRoom) return sanitizeRoomId(urlRoom);
+      const savedRoom = localStorage.getItem('neep_current_room');
+      if (savedRoom) return sanitizeRoomId(savedRoom);
+    } catch (e) {}
+    return DEFAULT_ROOM_ID;
+  });
 
   // Role: Admin vs Spectator
   const [isAdmin, setIsAdmin] = useState(true);
@@ -69,16 +92,25 @@ export default function App() {
   // Modals
   const [modal, setModal] = useState(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [isCloudConfigOpen, setIsCloudConfigOpen] = useState(false);
   const [showRotateBanner, setShowRotateBanner] = useState(false);
   const rotateTimeoutRef = useRef(null);
   const hydrated = useRef(false);
 
-  // 1. Parse URL for mode & PIN on load
+  // 1. Parse URL for room, mode & PIN on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get('mode');
     const pin = params.get('pin');
+    const urlRoom = params.get('room');
+
+    if (urlRoom) {
+      const cleanRoom = sanitizeRoomId(urlRoom);
+      if (cleanRoom && cleanRoom !== roomId) {
+        setRoomId(cleanRoom);
+      }
+    }
 
     if (mode === 'spectator') {
       setIsAdmin(false);
@@ -89,13 +121,17 @@ export default function App() {
     }
   }, [adminPin]);
 
-  // 2. Load LocalStorage & Setup Listeners
+  // 2. Load LocalStorage & Setup Listeners for Active Room
   useEffect(() => {
-    // Load local storage initial snapshot
     try {
-      const rawStats = localStorage.getItem(STORAGE_KEY_STATS);
+      localStorage.setItem('neep_current_room', roomId);
+      const tournKey = getTournStorageKey(roomId);
+      const statsKey = getStatsStorageKey(roomId);
+      const pairsKey = getPairsStorageKey(roomId);
+
+      const rawStats = localStorage.getItem(statsKey);
       const pStats = rawStats ? JSON.parse(rawStats) : {};
-      const rawPairs = localStorage.getItem(STORAGE_KEY_PARTNERSHIPS);
+      const rawPairs = localStorage.getItem(pairsKey);
       const pairStats = rawPairs ? JSON.parse(rawPairs) : {};
       setGlobalStats(pStats);
       setPartnershipStats(pairStats);
@@ -108,12 +144,12 @@ export default function App() {
       const combinedKnown = Array.from(new Set([...savedKnown, ...knownFromStats].filter(Boolean)));
       setSavedPlayers(combinedKnown);
 
-      const rawTourn = localStorage.getItem(STORAGE_KEY_TOURNAMENT);
+      const rawTourn = localStorage.getItem(tournKey);
       if (rawTourn) {
         const saved = JSON.parse(rawTourn);
         setView(saved.view || 'setup');
         setPlayerPool(saved.playerPool || []);
-        setNextPlayerId(saved.nextPlayerId || 1);
+        setNextPlayerId(saved.nextPlayerId || (saved.playerPool?.length ? Math.max(...saved.playerPool.map((p) => p.id)) + 1 : 1));
         setNumTeams(saved.numTeams || 4);
         setGoalScore(saved.goalScore || 11);
         setDreambreakerScore(saved.dreambreakerScore || 21);
@@ -128,18 +164,33 @@ export default function App() {
         setSittingOut(saved.sittingOut || []);
         setBracket(saved.bracket || null);
         setActivePath(saved.activePath || null);
+        if (saved.adminPin) setAdminPin(saved.adminPin);
+      } else {
+        setView('setup');
+        setPlayerPool([]);
+        setNextPlayerId(1);
+        setTeams([]);
+        setPlayersById({});
+        setRemainingPool([]);
+        setPickSequence([]);
+        setPickPointer(0);
+        setSittingOut([]);
+        setBracket(null);
+        setActivePath(null);
       }
     } catch (e) {
-      console.warn('Error loading local state:', e);
+      console.warn('Error loading room state:', e);
     }
 
-    // Connect Firebase Realtime listeners if cloud enabled
+    hydrated.current = true;
+
+    // Connect Firebase Realtime listeners for this roomId
     let unsubTourn = () => {};
     let unsubStats = () => {};
     let unsubPlayers = () => {};
 
     if (isCloudEnabled()) {
-      unsubTourn = subscribeToActiveTournament('neep-pickleball', (cloudTourn) => {
+      unsubTourn = subscribeToActiveTournament(roomId, (cloudTourn) => {
         if (cloudTourn) {
           if (cloudTourn.view) setView(cloudTourn.view);
           if (cloudTourn.playerPool) setPlayerPool(cloudTourn.playerPool);
@@ -158,37 +209,39 @@ export default function App() {
           if (cloudTourn.sittingOut) setSittingOut(cloudTourn.sittingOut);
           if (cloudTourn.bracket) setBracket(cloudTourn.bracket);
           if (cloudTourn.activePath !== undefined) setActivePath(cloudTourn.activePath);
+          if (cloudTourn.adminPin) setAdminPin(cloudTourn.adminPin);
         }
       });
 
-      unsubStats = subscribeToStats('neep-pickleball', ({ playerStats, partnershipStats }) => {
+      unsubStats = subscribeToStats(roomId, ({ playerStats, partnershipStats }) => {
         if (playerStats) setGlobalStats(playerStats);
         if (partnershipStats) setPartnershipStats(partnershipStats);
       });
 
-      unsubPlayers = subscribeToKnownPlayers('neep-pickleball', (roster) => {
-        if (roster && Array.isArray(roster)) {
-          setSavedPlayers(roster);
+      unsubPlayers = subscribeToKnownPlayers(roomId, (cloudPlayers) => {
+        if (cloudPlayers && cloudPlayers.length > 0) {
+          setSavedPlayers((prev) => Array.from(new Set([...prev, ...cloudPlayers])));
         }
       });
     }
 
-    hydrated.current = true;
     return () => {
       unsubTourn();
       unsubStats();
       unsubPlayers();
       if (rotateTimeoutRef.current) clearTimeout(rotateTimeoutRef.current);
     };
-  }, []);
+  }, [roomId]);
 
   // 3. LocalStorage persistence on change
   useEffect(() => {
     if (!hydrated.current) return;
     try {
       localStorage.setItem(
-        STORAGE_KEY_TOURNAMENT,
+        getTournStorageKey(roomId),
         JSON.stringify({
+          roomId,
+          adminPin,
           view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven,
           captainMode, selectedCaptainIds,
           teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath,
@@ -197,7 +250,7 @@ export default function App() {
     } catch (e) {
       // ignore
     }
-  }, [view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven, captainMode, selectedCaptainIds, teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath]);
+  }, [roomId, adminPin, view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven, captainMode, selectedCaptainIds, teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath]);
 
   function syncTournamentStats(currentBracket, currentTeams, currentPlayers) {
     const computed = computeAllStats(priorStats, priorPartnershipStats, currentBracket, currentTeams, currentPlayers);
@@ -205,20 +258,22 @@ export default function App() {
     setPartnershipStats(computed.partnershipStats);
 
     try {
-      localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(computed.playerStats));
-      localStorage.setItem(STORAGE_KEY_PARTNERSHIPS, JSON.stringify(computed.partnershipStats));
+      localStorage.setItem(getStatsStorageKey(roomId), JSON.stringify(computed.playerStats));
+      localStorage.setItem(getPairsStorageKey(roomId), JSON.stringify(computed.partnershipStats));
     } catch (e) {
       // ignore
     }
 
     if (isCloudEnabled()) {
-      saveStatsToCloud('neep-pickleball', computed.playerStats, computed.partnershipStats);
+      saveStatsToCloud(roomId, computed.playerStats, computed.partnershipStats);
     }
   }
 
   function broadcastTournamentChange(updates) {
     if (isCloudEnabled()) {
-      saveTournamentToCloud('neep-pickleball', {
+      saveTournamentToCloud(roomId, {
+        roomId,
+        adminPin,
         view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven,
         captainMode, selectedCaptainIds,
         teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath,
@@ -241,7 +296,7 @@ export default function App() {
         localStorage.setItem(STORAGE_KEY_KNOWN_PLAYERS, JSON.stringify(updatedKnown));
       } catch (e) {}
       if (isCloudEnabled()) {
-        saveKnownPlayersToCloud('neep-pickleball', updatedKnown);
+        saveKnownPlayersToCloud(roomId, updatedKnown);
       }
     }
     broadcastTournamentChange({ playerPool: updatedPool, nextPlayerId: nextPlayerId + 1 });
@@ -542,6 +597,74 @@ export default function App() {
     if (willRotate && !isWin) triggerRotateBanner();
   }
 
+  function handleSwitchRoom(newRoomId, pin) {
+    const cleanRoom = sanitizeRoomId(newRoomId);
+    if (!cleanRoom) return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', cleanRoom);
+    if (pin) {
+      url.searchParams.set('pin', pin);
+    } else {
+      url.searchParams.delete('pin');
+    }
+    window.history.replaceState({}, '', url.toString());
+
+    setRoomId(cleanRoom);
+    if (pin && pin === adminPin) {
+      setIsAdmin(true);
+    }
+  }
+
+  function handleCreatePrivateRoom(newRoomId, newPin) {
+    const cleanRoom = sanitizeRoomId(newRoomId);
+    setRoomId(cleanRoom);
+    setAdminPin(newPin);
+    setIsAdmin(true);
+
+    setView('setup');
+    setPlayerPool([]);
+    setNextPlayerId(1);
+    setTeams([]);
+    setPlayersById({});
+    setRemainingPool([]);
+    setPickSequence([]);
+    setPickPointer(0);
+    setSittingOut([]);
+    setBracket(null);
+    setActivePath(null);
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', cleanRoom);
+    url.searchParams.set('mode', 'admin');
+    url.searchParams.set('pin', newPin);
+    window.history.replaceState({}, '', url.toString());
+
+    if (isCloudEnabled()) {
+      saveTournamentToCloud(cleanRoom, {
+        roomId: cleanRoom,
+        adminPin: newPin,
+        view: 'setup',
+        playerPool: [],
+        nextPlayerId: 1,
+        numTeams: 4,
+        goalScore: 11,
+        dreambreakerScore: 21,
+        allowUneven: true,
+        captainMode: 'random',
+        selectedCaptainIds: [],
+        teams: [],
+        playersById: {},
+        remainingPool: [],
+        pickSequence: [],
+        pickPointer: 0,
+        sittingOut: [],
+        bracket: null,
+        activePath: null,
+      });
+    }
+  }
+
   function handleUnlockAdmin(pin) {
     if (pin === adminPin) {
       setIsAdmin(true);
@@ -640,7 +763,7 @@ export default function App() {
         setPriorStats({});
         setPriorPartnershipStats({});
         if (isCloudEnabled()) {
-          saveStatsToCloud('neep-pickleball', {}, {});
+          saveStatsToCloud(roomId, {}, {});
         }
         setModal(null);
       },
@@ -662,6 +785,8 @@ export default function App() {
         onWipeStats={requestWipeStats}
         onOpenShare={() => setIsShareOpen(true)}
         onOpenCloudConfig={() => setIsCloudConfigOpen(true)}
+        roomId={roomId}
+        onOpenRoomModal={() => setIsRoomModalOpen(true)}
         isAdmin={isAdmin}
         onUnlockAdmin={handleUnlockAdmin}
       />
@@ -688,6 +813,10 @@ export default function App() {
             setCaptainMode={setCaptainMode}
             selectedCaptainIds={selectedCaptainIds}
             setSelectedCaptainIds={setSelectedCaptainIds}
+            roomId={roomId}
+            setRoomId={(newId) => handleSwitchRoom(newId, adminPin)}
+            adminPin={adminPin}
+            setAdminPin={setAdminPin}
             onInitializeDraft={handleInitializeDraft}
             isAdmin={isAdmin}
           />
@@ -771,6 +900,16 @@ export default function App() {
         onClose={() => setIsShareOpen(false)}
         isAdmin={isAdmin}
         adminPin={adminPin}
+        roomId={roomId}
+      />
+      <RoomModal
+        isOpen={isRoomModalOpen}
+        onClose={() => setIsRoomModalOpen(false)}
+        currentRoomId={roomId}
+        adminPin={adminPin}
+        isAdmin={isAdmin}
+        onSwitchRoom={handleSwitchRoom}
+        onCreatePrivateRoom={handleCreatePrivateRoom}
       />
       <CloudConfigModal
         isOpen={isCloudConfigOpen}

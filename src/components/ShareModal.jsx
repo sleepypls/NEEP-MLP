@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Share2, Eye, ShieldCheck } from 'lucide-react';
+import { X, Copy, Check, Share2, Eye, ShieldCheck, Lock, KeyRound } from 'lucide-react';
 
-export function ShareModal({ isOpen, onClose, isAdmin, adminPin }) {
+export function ShareModal({ isOpen, onClose, isAdmin, adminPin, roomId }) {
   const [copiedSpectator, setCopiedSpectator] = useState(false);
   const [copiedAdmin, setCopiedAdmin] = useState(false);
 
   if (!isOpen) return null;
 
   const baseUrl = window.location.origin + window.location.pathname;
-  const spectatorUrl = `${baseUrl}?mode=spectator`;
-  const adminUrl = `${baseUrl}?mode=admin&pin=${adminPin || '1234'}`;
+  const currentRoom = roomId || 'neep-main';
+  const spectatorUrl = `${baseUrl}?room=${currentRoom}&mode=spectator`;
+  const adminUrl = `${baseUrl}?room=${currentRoom}&mode=admin&pin=${adminPin || '1234'}`;
 
   function copyToClipboard(text, isSpectator) {
     navigator.clipboard.writeText(text).then(() => {
@@ -39,6 +40,28 @@ export function ShareModal({ isOpen, onClose, isAdmin, adminPin }) {
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition">
             <X size={18} />
           </button>
+        </div>
+
+        {/* Room Info Card */}
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 flex-shrink-0">
+              <Lock size={16} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Tournament Room</span>
+              <span className="font-mono font-black text-white text-sm tracking-wider truncate block">{currentRoom}</span>
+            </div>
+          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 flex-shrink-0">
+              <KeyRound size={13} className="text-amber-400" />
+              <div className="text-right">
+                <span className="text-[9px] uppercase font-bold text-slate-500 block leading-none">PIN</span>
+                <span className="font-mono font-bold text-amber-300 text-xs">{adminPin || '1234'}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <p className="text-slate-400 text-sm mb-5 leading-relaxed">

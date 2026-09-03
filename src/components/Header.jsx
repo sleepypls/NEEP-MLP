@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trophy, Swords, Share2, Cloud, RotateCcw, Trash2, ShieldCheck, Eye, KeyRound } from 'lucide-react';
+import { Trophy, Swords, Share2, Cloud, RotateCcw, Trash2, ShieldCheck, Eye, KeyRound, Lock, Users } from 'lucide-react';
 import { isCloudEnabled } from '../services/firebase';
 
 export function Header({
@@ -11,6 +11,8 @@ export function Header({
   onWipeStats,
   onOpenShare,
   onOpenCloudConfig,
+  roomId,
+  onOpenRoomModal,
   isAdmin,
   onUnlockAdmin,
 }) {
@@ -92,6 +94,18 @@ export function Header({
             <span className={`w-2 h-2 rounded-full ${cloudActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
             <span className="hidden md:inline text-slate-300 text-[11px] font-mono">
               {cloudActive ? 'Cloud Live' : 'Local'}
+            </span>
+          </button>
+
+          {/* Room Pill */}
+          <button
+            onClick={onOpenRoomModal}
+            title="Tournament Room Sessions. Click to switch or create rooms!"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-850 border border-slate-800 text-xs font-medium transition active:scale-95"
+          >
+            <Lock size={12} className="text-amber-400" />
+            <span className="text-slate-300 font-mono text-[11px] font-bold max-w-[85px] sm:max-w-none truncate">
+              {roomId || 'Room'}
             </span>
           </button>
 
