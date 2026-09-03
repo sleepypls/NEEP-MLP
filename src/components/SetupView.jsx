@@ -42,7 +42,7 @@ export function SetupView({
     <div className="max-w-lg mx-auto px-4 py-6 pb-24 animate-in fade-in duration-200">
       {/* Club Hero Card */}
       <div className="flex items-center gap-4 bg-gradient-to-r from-slate-900 via-slate-900/95 to-blue-950/40 border border-slate-800 rounded-3xl p-4 mb-6 shadow-xl relative overflow-hidden">
-        <div className="w-16 h-16 rounded-2xl bg-slate-950 border border-slate-750/80 p-1 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-lg shadow-black/60">
+        <div className="w-14 h-16 flex-shrink-0 flex items-center justify-center filter drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
           <img src="/logo.png" alt="NEEP-NLP Score Tracker Logo" className="w-full h-full object-contain" />
         </div>
         <div className="flex-1 min-w-0">

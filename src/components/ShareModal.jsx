@@ -28,7 +28,7 @@ export function ShareModal({ isOpen, onClose, isAdmin, adminPin }) {
       <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-750 p-0.5 flex items-center justify-center overflow-hidden shadow-md">
+            <div className="w-9 h-11 flex-shrink-0 flex items-center justify-center filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
               <img src="/logo.png" alt="NEEP-NLP Score Tracker" className="w-full h-full object-contain" />
             </div>
             <div>

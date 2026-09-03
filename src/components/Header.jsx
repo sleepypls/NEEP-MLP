@@ -34,7 +34,7 @@ export function Header({
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
           <button onClick={() => setView('setup')} className="text-left flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700/60 p-0.5 flex items-center justify-center overflow-hidden shadow-lg shadow-black/40 group-hover:scale-105 group-hover:border-[#d7f24c]/40 transition duration-150">
+            <div className="w-8 h-10 flex-shrink-0 flex items-center justify-center filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] group-hover:scale-105 transition duration-150">
               <img
                 src="/logo.png"
                 alt="NEEP-NLP Score Tracker Logo"
