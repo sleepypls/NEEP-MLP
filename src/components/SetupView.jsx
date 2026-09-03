@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserPlus, Users, X, Shuffle, Zap, ShieldAlert } from 'lucide-react';
+import { UserPlus, Users, X, Shuffle, Zap, ShieldAlert, Crown, Check } from 'lucide-react';
 
 export function SetupView({
   playerPool,
@@ -17,10 +17,37 @@ export function SetupView({
   setDreambreakerScore,
   allowUneven,
   setAllowUneven,
+  captainMode = 'random',
+  setCaptainMode,
+  selectedCaptainIds = [],
+  setSelectedCaptainIds,
   onInitializeDraft,
   isAdmin,
 }) {
   const [nameInput, setNameInput] = useState('');
+
+  function toggleCaptain(id) {
+    if (!isAdmin) return;
+    if (selectedCaptainIds.includes(id)) {
+      setSelectedCaptainIds(selectedCaptainIds.filter((cid) => cid !== id));
+    } else {
+      if (selectedCaptainIds.length >= numTeams) {
+        setSelectedCaptainIds([...selectedCaptainIds.slice(1), id]);
+      } else {
+        setSelectedCaptainIds([...selectedCaptainIds, id]);
+      }
+    }
+  }
+
+  function handleAutoFillCaptains() {
+    if (!isAdmin) return;
+    const currentSet = new Set(selectedCaptainIds);
+    const unpicked = playerPool.filter((p) => !currentSet.has(p.id));
+    const shuffled = [...unpicked].sort(() => Math.random() - 0.5);
+    const needed = Math.max(0, numTeams - selectedCaptainIds.length);
+    const toAdd = shuffled.slice(0, needed).map((p) => p.id);
+    setSelectedCaptainIds([...selectedCaptainIds, ...toAdd]);
+  }
 
   const baseTeamSize = numTeams ? Math.floor(playerPool.length / numTeams) : 0;
   const extraPlayers = numTeams ? playerPool.length % numTeams : 0;
@@ -97,16 +124,27 @@ export function SetupView({
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {playerPool.map((p) => (
-              <span key={p.id} className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full pl-3 pr-1.5 py-1.5 text-slate-200 text-sm font-medium">
-                {p.name}
-                {isAdmin && (
-                  <button onClick={() => removePlayer(p.id)} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-red-400 transition">
-                    <X size={14} />
-                  </button>
-                )}
-              </span>
-            ))}
+            {playerPool.map((p) => {
+              const isCaptain = captainMode === 'manual' && selectedCaptainIds.includes(p.id);
+              return (
+                <span
+                  key={p.id}
+                  className={`flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1.5 text-sm font-medium transition ${
+                    isCaptain
+                      ? 'bg-amber-500/15 border-amber-500/50 text-amber-300 font-semibold shadow-sm shadow-amber-500/10'
+                      : 'bg-slate-800 border-slate-700 text-slate-200'
+                  }`}
+                >
+                  {isCaptain && <Crown size={13} className="text-amber-400 fill-current" />}
+                  <span>{p.name}</span>
+                  {isAdmin && (
+                    <button onClick={() => removePlayer(p.id)} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-red-400 transition">
+                      <X size={14} />
+                    </button>
+                  )}
+                </span>
+              );
+            })}
           </div>
         )}
 
@@ -169,6 +207,124 @@ export function SetupView({
           <option value={7}>7 Teams (Quarters, Semis, Final, with Byes)</option>
           <option value={8}>8 Teams (Quarters, Semis, Final)</option>
         </select>
+      </div>
+
+      {/* Captain Selection Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4 shadow-xl">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-slate-200 text-sm font-bold flex items-center gap-1.5">
+            <Crown size={16} className="text-amber-400" /> Captain Selection
+          </label>
+          {captainMode === 'manual' && (
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+              selectedCaptainIds.length === numTeams
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+            }`}>
+              {selectedCaptainIds.length} / {numTeams} Selected
+            </span>
+          )}
+        </div>
+
+        {/* Mode Toggle Buttons */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button
+            type="button"
+            disabled={!isAdmin}
+            onClick={() => setCaptainMode('random')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              captainMode === 'random'
+                ? 'bg-[#d7f24c] text-slate-950 shadow-md shadow-[#d7f24c]/20'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-750 border border-slate-700'
+            }`}
+          >
+            <Shuffle size={13} />
+            Random Captains
+          </button>
+          <button
+            type="button"
+            disabled={!isAdmin}
+            onClick={() => setCaptainMode('manual')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              captainMode === 'manual'
+                ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-750 border border-slate-700'
+            }`}
+          >
+            <Crown size={13} className={captainMode === 'manual' ? 'fill-current' : ''} />
+            Choose Captains
+          </button>
+        </div>
+
+        {captainMode === 'random' ? (
+          <p className="text-slate-500 text-xs">
+            {numTeams} team captains will be chosen randomly when the draft begins.
+          </p>
+        ) : (
+          <div className="space-y-3 pt-1">
+            <p className="text-slate-400 text-xs">
+              Click players below to designate them as team captains ({numTeams} needed):
+            </p>
+
+            {playerPool.length === 0 ? (
+              <p className="text-slate-600 text-xs italic py-1">Add players to the player pool above first.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {playerPool.map((p) => {
+                  const isCaptain = selectedCaptainIds.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={!isAdmin}
+                      onClick={() => toggleCaptain(p.id)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
+                        isCaptain
+                          ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20 ring-2 ring-amber-300'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-750 border border-slate-700'
+                      }`}
+                    >
+                      <Crown size={12} className={isCaptain ? 'text-slate-950 fill-current' : 'text-slate-500'} />
+                      <span>{p.name}</span>
+                      {isCaptain && <Check size={13} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Helper actions for manual mode */}
+            {isAdmin && playerPool.length >= numTeams && (
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+                <span className="text-slate-500">
+                  {selectedCaptainIds.length < numTeams
+                    ? `Need ${numTeams - selectedCaptainIds.length} more (unselected will be random)`
+                    : 'All team captain slots filled!'}
+                </span>
+                <div className="flex gap-2">
+                  {selectedCaptainIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCaptainIds([])}
+                      className="text-slate-400 hover:text-white transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                  {selectedCaptainIds.length < numTeams && (
+                    <button
+                      type="button"
+                      onClick={handleAutoFillCaptains}
+                      className="text-amber-400 hover:text-amber-300 font-semibold transition flex items-center gap-1"
+                    >
+                      <Shuffle size={12} /> Auto-fill
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Goal Score Limit */}

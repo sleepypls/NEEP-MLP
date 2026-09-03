@@ -115,7 +115,7 @@ export function generateGames(teamA, teamB, goalScore) {
   return games;
 }
 
-export function initializeDraftState(playerPool, numTeams, allowUneven = true) {
+export function initializeDraftState(playerPool, numTeams, allowUneven = true, selectedCaptainIds = []) {
   const teams = [];
   const draftPlayers = [...playerPool];
   const sittingOut = [];
@@ -124,10 +124,14 @@ export function initializeDraftState(playerPool, numTeams, allowUneven = true) {
   const remainder = draftPlayers.length % numTeams;
 
   if (!allowUneven && remainder > 0) {
-    const shuffled = shuffle(draftPlayers);
-    const toSitOut = shuffled.slice(0, remainder);
-    const toDraft = shuffled.slice(remainder);
+    const captainSet = new Set(selectedCaptainIds);
+    const nonCaptains = draftPlayers.filter((p) => !captainSet.has(p.id));
+    const shuffledNonCaptains = shuffle(nonCaptains);
+    const toSitOut = shuffledNonCaptains.slice(0, remainder);
+    const sitOutSet = new Set(toSitOut.map((p) => p.id));
     toSitOut.forEach((p) => sittingOut.push(p.id));
+
+    const toDraft = draftPlayers.filter((p) => !sitOutSet.has(p.id));
     draftPlayers.length = 0;
     draftPlayers.push(...toDraft);
   }
@@ -142,15 +146,35 @@ export function initializeDraftState(playerPool, numTeams, allowUneven = true) {
     });
   }
 
-  const shuffled = shuffle(draftPlayers);
+  // Determine captains:
+  const captains = [];
+  const captainIdSet = new Set();
+  if (Array.isArray(selectedCaptainIds)) {
+    for (const cid of selectedCaptainIds) {
+      const found = draftPlayers.find((p) => p.id === cid);
+      if (found && !captainIdSet.has(found.id) && captains.length < numTeams) {
+        captains.push(found);
+        captainIdSet.add(found.id);
+      }
+    }
+  }
+
+  // Fill any remaining captain slots randomly
+  const poolForRandomCaptains = shuffle(draftPlayers.filter((p) => !captainIdSet.has(p.id)));
+  while (captains.length < numTeams && poolForRandomCaptains.length > 0) {
+    const nextCaptain = poolForRandomCaptains.pop();
+    captains.push(nextCaptain);
+    captainIdSet.add(nextCaptain.id);
+  }
+
   for (let i = 0; i < numTeams; i++) {
-    const player = shuffled[i];
+    const player = captains[i];
     teams[i].captainId = player.id;
     teams[i].name = `Team ${player.name}`;
     teams[i].draftOrder.push(player.id);
   }
 
-  const remainingPool = shuffled.slice(numTeams);
+  const remainingPool = shuffle(draftPlayers.filter((p) => !captainIdSet.has(p.id)));
 
   const pickSequence = [];
   let draftedCount = numTeams;

@@ -50,6 +50,8 @@ export default function App() {
   const [pickSequence, setPickSequence] = useState([]);
   const [pickPointer, setPickPointer] = useState(0);
   const [sittingOut, setSittingOut] = useState([]);
+  const [captainMode, setCaptainMode] = useState('random');
+  const [selectedCaptainIds, setSelectedCaptainIds] = useState([]);
 
   const [bracket, setBracket] = useState(null);
   const [activePath, setActivePath] = useState(null);
@@ -116,6 +118,8 @@ export default function App() {
         setGoalScore(saved.goalScore || 11);
         setDreambreakerScore(saved.dreambreakerScore || 21);
         setAllowUneven(saved.allowUneven !== undefined ? saved.allowUneven : true);
+        setCaptainMode(saved.captainMode || 'random');
+        setSelectedCaptainIds(saved.selectedCaptainIds || []);
         setTeams(saved.teams || []);
         setPlayersById(saved.playersById || {});
         setRemainingPool(saved.remainingPool || []);
@@ -144,6 +148,8 @@ export default function App() {
           if (cloudTourn.goalScore) setGoalScore(cloudTourn.goalScore);
           if (cloudTourn.dreambreakerScore) setDreambreakerScore(cloudTourn.dreambreakerScore);
           if (cloudTourn.allowUneven !== undefined) setAllowUneven(cloudTourn.allowUneven);
+          if (cloudTourn.captainMode !== undefined) setCaptainMode(cloudTourn.captainMode);
+          if (cloudTourn.selectedCaptainIds !== undefined) setSelectedCaptainIds(cloudTourn.selectedCaptainIds);
           if (cloudTourn.teams) setTeams(cloudTourn.teams);
           if (cloudTourn.playersById) setPlayersById(cloudTourn.playersById);
           if (cloudTourn.remainingPool) setRemainingPool(cloudTourn.remainingPool);
@@ -184,13 +190,14 @@ export default function App() {
         STORAGE_KEY_TOURNAMENT,
         JSON.stringify({
           view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven,
+          captainMode, selectedCaptainIds,
           teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath,
         })
       );
     } catch (e) {
       // ignore
     }
-  }, [view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven, teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath]);
+  }, [view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven, captainMode, selectedCaptainIds, teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath]);
 
   function syncTournamentStats(currentBracket, currentTeams, currentPlayers) {
     const computed = computeAllStats(priorStats, priorPartnershipStats, currentBracket, currentTeams, currentPlayers);
@@ -213,6 +220,7 @@ export default function App() {
     if (isCloudEnabled()) {
       saveTournamentToCloud('neep-pickleball', {
         view, playerPool, nextPlayerId, numTeams, goalScore, dreambreakerScore, allowUneven,
+        captainMode, selectedCaptainIds,
         teams, playersById, remainingPool, pickSequence, pickPointer, sittingOut, bracket, activePath,
         ...updates,
       });
@@ -241,8 +249,10 @@ export default function App() {
 
   function removePlayer(id) {
     const updatedPool = playerPool.filter((p) => p.id !== id);
+    const updatedCaptains = selectedCaptainIds.filter((cid) => cid !== id);
     setPlayerPool(updatedPool);
-    broadcastTournamentChange({ playerPool: updatedPool });
+    setSelectedCaptainIds(updatedCaptains);
+    broadcastTournamentChange({ playerPool: updatedPool, selectedCaptainIds: updatedCaptains });
   }
 
   function handleAddSavedPlayer(name) {
@@ -273,7 +283,8 @@ export default function App() {
   }
 
   function handleInitializeDraft() {
-    const result = initializeDraftState(playerPool, numTeams, allowUneven);
+    const captainsToUse = captainMode === 'manual' ? selectedCaptainIds : [];
+    const result = initializeDraftState(playerPool, numTeams, allowUneven, captainsToUse);
     setTeams(result.teams);
     setRemainingPool(result.remainingPool);
     setPickSequence(result.pickSequence);
@@ -673,6 +684,10 @@ export default function App() {
             setDreambreakerScore={setDreambreakerScore}
             allowUneven={allowUneven}
             setAllowUneven={setAllowUneven}
+            captainMode={captainMode}
+            setCaptainMode={setCaptainMode}
+            selectedCaptainIds={selectedCaptainIds}
+            setSelectedCaptainIds={setSelectedCaptainIds}
             onInitializeDraft={handleInitializeDraft}
             isAdmin={isAdmin}
           />

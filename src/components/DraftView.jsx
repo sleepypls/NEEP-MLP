@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserCheck, Swords, ShieldAlert } from 'lucide-react';
+import { UserCheck, Swords, ShieldAlert, Crown } from 'lucide-react';
 
 export function DraftView({
   teams,
@@ -94,8 +94,8 @@ export function DraftView({
                   <span className="font-mono text-xs text-slate-500 w-4">{i + 1}.</span>
                   <span className="font-medium truncate">{playersById[pid]}</span>
                   {i === 0 && (
-                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">
-                      Captain
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <Crown size={11} className="fill-current" /> Captain
                     </span>
                   )}
                 </li>
