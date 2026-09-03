@@ -20,7 +20,7 @@ This guide explains how to host your **NLP - NEEP Score Tracker** online for fre
 3. Click **"Add New Project"** &rarr; Select your `NEEP-MLP` repository.
 4. Framework Preset will automatically detect **Vite**.
 5. Click **"Deploy"**. Within 60 seconds, your site will be live at:
-   `https://your-project.vercel.app`
+   `https://neep-nlp.vercel.app`
 
 ---
 
@@ -71,9 +71,9 @@ In your Vercel Project Settings &rarr; **Environment Variables**, add:
 Click the **Share** button in the header to get two links:
 
 1. **Spectator Link (For Players & Spectators)**:
-   - `https://your-site.vercel.app/?mode=spectator`
+   - `https://neep-nlp.vercel.app/?mode=spectator`
    - Players can view court matchups, live scores, bracket progress, and partnership standings on their phones. Score editing is disabled so nobody can accidentally change a score.
 
 2. **Scorekeeper Link (For Organizers)**:
-   - `https://your-site.vercel.app/?mode=admin&pin=1234`
+   - `https://neep-nlp.vercel.app/?mode=admin&pin=1234`
    - Unlocks full access to draft players, score regulation games, randomize extra games, and run Dreambreakers.
