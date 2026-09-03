@@ -1,6 +1,6 @@
 # Hosting & Deployment Guide
 
-This guide explains how to host your **NEEP-MLP Pickleball Tracker** online for free, connect **Google Firebase Firestore** for real-time multiplayer scoring, and share links with players.
+This guide explains how to host your **NLP - NEEP Score Tracker** online for free, connect **Google Firebase Firestore** for real-time multiplayer scoring, and share links with players.
 
 ---
 

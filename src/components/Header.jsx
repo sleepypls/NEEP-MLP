@@ -34,23 +34,23 @@ export function Header({
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
           <button onClick={() => setView('setup')} className="text-left flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700/60 p-0.5 flex items-center justify-center overflow-hidden shadow-lg shadow-black/40 group-hover:scale-105 group-hover:border-[#d7f24c]/40 transition duration-150">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700/60 p-0.5 flex items-center justify-center overflow-hidden shadow-lg shadow-black/40 group-hover:scale-105 group-hover:border-[#d7f24c]/40 transition duration-150">
               <img
                 src="/logo.png"
-                alt="NEEP MLP Logo"
+                alt="NLP - NEEP Score Tracker Logo"
                 className="w-full h-full object-contain"
               />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-black tracking-wider text-white text-base leading-none">
-                  NEEP<span className="text-[#d7f24c]">MLP</span>
+                  NLP
                 </span>
                 <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
                   v2.0
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 font-medium leading-none mt-0.5">Pickleball Tracker</p>
+              <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">NEEP Score Tracker</p>
             </div>
           </button>
         </div>

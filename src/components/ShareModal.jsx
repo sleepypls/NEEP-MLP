@@ -29,11 +29,11 @@ export function ShareModal({ isOpen, onClose, isAdmin, adminPin }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-750 p-0.5 flex items-center justify-center overflow-hidden shadow-md">
-              <img src="/logo.png" alt="NEEP MLP" className="w-full h-full object-contain" />
+              <img src="/logo.png" alt="NLP - NEEP Score Tracker" className="w-full h-full object-contain" />
             </div>
             <div>
               <h3 className="text-white text-lg font-bold leading-tight">Share Tournament</h3>
-              <p className="text-xs text-slate-400">NEEP-MLP Live Sync</p>
+              <p className="text-xs text-slate-400">NLP - NEEP Score Tracker Live Sync</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition">
