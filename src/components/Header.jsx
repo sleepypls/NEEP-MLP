@@ -32,27 +32,27 @@ export function Header({
 
   return (
     <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
         {/* Logo and Brand */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => setView('setup')} className="text-left flex items-center gap-2.5 group">
-            <div className="w-8 h-10 flex-shrink-0 flex items-center justify-center filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] group-hover:scale-105 transition duration-150">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+          <button onClick={() => setView('setup')} className="text-left flex items-center gap-2 sm:gap-2.5 group">
+            <div className="w-7 h-9 sm:w-8 sm:h-10 shrink-0 flex items-center justify-center filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] group-hover:scale-105 transition duration-150">
               <img
                 src="/logo.png"
                 alt="NEEP-NLP Score Tracker Logo"
                 className="w-full h-full object-contain"
               />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-display font-black tracking-wider text-white text-base leading-none">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
+                <span className="font-display font-black tracking-wider text-white text-sm sm:text-base leading-none">
                   NEEP-NLP
                 </span>
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded font-semibold">
+                <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider bg-slate-900 border border-slate-800 px-1 py-0.5 rounded font-semibold hidden xs:inline">
                   v2.0 Beta
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">Score Tracker</p>
+              <p className="text-[9px] sm:text-[10px] text-slate-400 font-medium leading-none mt-0.5 truncate hidden xs:block">Score Tracker</p>
             </div>
           </button>
         </div>
@@ -84,12 +84,12 @@ export function Header({
         )}
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Cloud Status Pill */}
           <button
             onClick={onOpenCloudConfig}
             title={cloudActive ? 'Connected to Firebase Firestore' : 'Running in Local Mode. Click to connect cloud!'}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-850 border border-slate-800 text-xs font-medium transition"
+            className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-full bg-slate-900 hover:bg-slate-850 border border-slate-800 text-xs font-medium transition"
           >
             <span className={`w-2 h-2 rounded-full ${cloudActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
             <span className="hidden md:inline text-slate-300 text-[11px] font-mono">
@@ -101,26 +101,30 @@ export function Header({
           <button
             onClick={onOpenRoomModal}
             title="Tournament Room Sessions. Click to switch or create rooms!"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-850 border border-slate-800 text-xs font-medium transition active:scale-95"
+            className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900 hover:bg-slate-850 border border-slate-800 text-xs font-medium transition active:scale-95"
           >
-            <Lock size={12} className="text-amber-400" />
-            <span className="text-slate-300 font-mono text-[11px] font-bold max-w-[85px] sm:max-w-none truncate">
+            <Lock size={11} className="text-amber-400 shrink-0" />
+            <span className="text-slate-300 font-mono text-[10px] sm:text-[11px] font-bold max-w-[48px] xs:max-w-[70px] sm:max-w-none truncate">
               {roomId || 'Room'}
             </span>
           </button>
 
           {/* Admin vs Spectator Role */}
           {isAdmin ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#d7f24c]/15 border border-[#d7f24c]/30 text-[#d7f24c] text-[11px] font-bold">
-              <ShieldCheck size={12} /> Scorekeeper
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#d7f24c]/15 border border-[#d7f24c]/30 text-[#d7f24c] text-[10px] sm:text-[11px] font-bold whitespace-nowrap">
+              <ShieldCheck size={12} className="shrink-0" />
+              <span className="hidden xs:inline">Scorekeeper</span>
+              <span className="xs:hidden">Admin</span>
             </span>
           ) : (
             <button
               onClick={() => setShowPinPrompt(!showPinPrompt)}
               title="Click to enter Scorekeeper Admin PIN"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white text-[11px] font-semibold transition"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white text-[10px] sm:text-[11px] font-semibold transition whitespace-nowrap"
             >
-              <Eye size={12} /> Spectator
+              <Eye size={12} className="shrink-0" />
+              <span className="hidden xs:inline">Spectator</span>
+              <span className="xs:hidden">Spec</span>
             </button>
           )}
 
@@ -128,9 +132,9 @@ export function Header({
           <button
             onClick={onOpenShare}
             title="Share Tournament Link"
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-[#d7f24c] border border-slate-800 transition active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-[#d7f24c] border border-slate-800 transition active:scale-95 shrink-0"
           >
-            <Share2 size={16} />
+            <Share2 size={15} />
           </button>
 
           {/* Reset / New Tournament (Admin only) */}
@@ -138,9 +142,9 @@ export function Header({
             <button
               onClick={onClear}
               title="Reset or Start New Tournament"
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white border border-slate-800 transition active:scale-95"
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white border border-slate-800 transition active:scale-95 shrink-0"
             >
-              <RotateCcw size={16} />
+              <RotateCcw size={15} />
             </button>
           )}
 
@@ -149,9 +153,9 @@ export function Header({
             <button
               onClick={onWipeStats}
               title="Wipe Global Leaderboard"
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-500 hover:text-red-400 border border-slate-800 transition active:scale-95"
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-500 hover:text-red-400 border border-slate-800 transition active:scale-95 shrink-0"
             >
-              <Trash2 size={16} />
+              <Trash2 size={15} />
             </button>
           )}
         </div>

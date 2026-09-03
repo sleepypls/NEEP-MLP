@@ -32,8 +32,8 @@ function GameRow({ game, index, teamA, teamB, playersById, expanded, onToggle, o
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl mb-3 overflow-hidden shadow-lg transition">
-      <button onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3.5 text-left">
-        <div>
+      <button onClick={onToggle} className="w-full flex items-center justify-between gap-3 px-3.5 sm:px-4 py-3 sm:py-3.5 text-left">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider">Game {index + 1}</p>
             {game.isExtra && (
@@ -42,20 +42,20 @@ function GameRow({ game, index, teamA, teamB, playersById, expanded, onToggle, o
               </span>
             )}
           </div>
-          <p className="text-white text-sm font-semibold">
+          <p className="text-white text-xs sm:text-sm font-semibold truncate">
             <span className={aWon ? 'text-[#d7f24c] font-bold' : ''}>{label(game.pairA)}</span>
             <span className="text-slate-500 font-normal"> vs </span>
             <span className={bWon ? 'text-[#d7f24c] font-bold' : ''}>{label(game.pairB)}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {game.saved && (
-            <span className="font-mono text-slate-200 font-bold text-sm bg-slate-800 px-2.5 py-1 rounded-lg">
-              {game.scoreA} - {game.scoreB}
+            <span className="font-mono text-slate-200 font-bold text-xs sm:text-sm bg-slate-800 px-2 sm:px-2.5 py-1 rounded-lg whitespace-nowrap">
+              {game.scoreA} &ndash; {game.scoreB}
             </span>
           )}
-          {game.saved ? <Check size={18} className="text-[#d7f24c]" /> : <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />}
-          {expanded ? <ChevronUp size={18} className="text-slate-500" /> : <ChevronDown size={18} className="text-slate-500" />}
+          {game.saved ? <Check size={18} className="text-[#d7f24c] shrink-0" /> : <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />}
+          {expanded ? <ChevronUp size={18} className="text-slate-500 shrink-0" /> : <ChevronDown size={18} className="text-slate-500 shrink-0" />}
         </div>
       </button>
 
@@ -155,39 +155,46 @@ export function MatchDashboard({
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 pb-24 animate-in fade-in duration-200">
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={onBack} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm font-semibold transition">
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-slate-400 hover:text-white text-xs sm:text-sm font-semibold transition shrink-0">
           <ArrowLeft size={16} /> Back to Bracket
         </button>
         {isAdmin && hasUnsavedExtra && (
           <button
             onClick={onReRandomizeExtra}
             title="Re-randomize player pairings for unsaved extra games"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold border border-amber-500/30 active:scale-95 transition"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold border border-amber-500/30 active:scale-95 transition shrink-0"
           >
-            <Shuffle size={13} /> Re-randomize Extra Games
+            <Shuffle size={13} className="shrink-0" />
+            <span className="hidden xs:inline">Re-randomize Extra</span>
+            <span className="xs:hidden">Reshuffle</span>
           </button>
         )}
       </div>
 
       {/* Main Match Header Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 mb-5 shadow-2xl">
-        <div className="flex items-center justify-between mb-2">
-          <span className="flex items-center gap-2 font-bold text-white text-base truncate max-w-[40%]">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-3.5 sm:p-5 mb-5 shadow-2xl">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4 mb-2">
+          {/* Team A */}
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <TeamDot color={teamA.color} />
-            <span className="truncate">{teamA.name}</span>
-          </span>
-          <div className="text-center px-3 py-1 rounded-2xl bg-slate-950 border border-slate-800">
-            <span className="text-3xl sm:text-4xl font-display font-black text-white tabular-nums tracking-wider">
-              {match.gamesWonA} - {match.gamesWonB}
+            <span className="font-bold text-white text-xs sm:text-base truncate">{teamA.name}</span>
+          </div>
+
+          {/* Centered Score Badge */}
+          <div className="px-3 sm:px-4 py-1.5 rounded-2xl bg-slate-950 border border-slate-800 shrink-0 text-center shadow-inner">
+            <span className="text-2xl sm:text-4xl font-display font-black text-white tabular-nums tracking-wider whitespace-nowrap">
+              {match.gamesWonA} &ndash; {match.gamesWonB}
             </span>
           </div>
-          <span className="flex items-center gap-2 font-bold text-white text-base truncate max-w-[40%] justify-end">
-            <span className="truncate">{teamB.name}</span>
+
+          {/* Team B */}
+          <div className="flex items-center justify-end gap-1.5 sm:gap-2 min-w-0 text-right">
+            <span className="font-bold text-white text-xs sm:text-base truncate">{teamB.name}</span>
             <TeamDot color={teamB.color} />
-          </span>
+          </div>
         </div>
-        <p className="text-slate-500 text-xs text-center">
+        <p className="text-slate-500 text-[11px] sm:text-xs text-center">
           Regulation &mdash; first to win the most of {match.games.length} games
         </p>
       </div>

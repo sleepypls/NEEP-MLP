@@ -87,13 +87,13 @@ export function DreambreakerPlayView({
             <TeamDot color={teamA.color} />
             <span className="truncate">{teamA.name}</span>
           </p>
-          <p className="text-7xl sm:text-8xl font-display font-black text-white mb-4 tabular-nums">
+          <p className="text-6xl sm:text-8xl font-display font-black text-white mb-3 sm:mb-4 tabular-nums">
             {db.scoreA}
           </p>
           {isAdmin ? (
             <button
               onClick={() => onScore('A')}
-              className="w-full aspect-square rounded-3xl text-5xl font-black text-slate-950 active:scale-95 transition shadow-2xl flex items-center justify-center hover:opacity-90"
+              className="w-full aspect-square rounded-3xl text-4xl sm:text-5xl font-black text-slate-950 active:scale-95 transition shadow-2xl flex items-center justify-center hover:opacity-90"
               style={{ backgroundColor: teamA.color.accent }}
             >
               +1
@@ -111,13 +111,13 @@ export function DreambreakerPlayView({
             <TeamDot color={teamB.color} />
             <span className="truncate">{teamB.name}</span>
           </p>
-          <p className="text-7xl sm:text-8xl font-display font-black text-white mb-4 tabular-nums">
+          <p className="text-6xl sm:text-8xl font-display font-black text-white mb-3 sm:mb-4 tabular-nums">
             {db.scoreB}
           </p>
           {isAdmin ? (
             <button
               onClick={() => onScore('B')}
-              className="w-full aspect-square rounded-3xl text-5xl font-black text-slate-950 active:scale-95 transition shadow-2xl flex items-center justify-center hover:opacity-90"
+              className="w-full aspect-square rounded-3xl text-4xl sm:text-5xl font-black text-slate-950 active:scale-95 transition shadow-2xl flex items-center justify-center hover:opacity-90"
               style={{ backgroundColor: teamB.color.accent }}
             >
               +1
