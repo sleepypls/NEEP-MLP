@@ -33,10 +33,14 @@ export function Header({
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
-          <button onClick={() => setView('setup')} className="text-left flex items-center gap-2 group">
-            <span className="w-8 h-8 rounded-xl bg-[#d7f24c] flex items-center justify-center font-display font-black text-slate-950 text-base shadow-lg shadow-[#d7f24c]/20 group-hover:scale-105 transition">
-              N
-            </span>
+          <button onClick={() => setView('setup')} className="text-left flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700/60 p-0.5 flex items-center justify-center overflow-hidden shadow-lg shadow-black/40 group-hover:scale-105 group-hover:border-[#d7f24c]/40 transition duration-150">
+              <img
+                src="/logo.png"
+                alt="NEEP MLP Logo"
+                className="w-full h-full object-contain"
+              />
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-black tracking-wider text-white text-base leading-none">

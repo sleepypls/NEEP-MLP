@@ -40,8 +40,22 @@ export function SetupView({
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 pb-24 animate-in fade-in duration-200">
+      {/* Club Hero Card */}
+      <div className="flex items-center gap-4 bg-gradient-to-r from-slate-900 via-slate-900/95 to-blue-950/40 border border-slate-800 rounded-3xl p-4 mb-6 shadow-xl relative overflow-hidden">
+        <div className="w-16 h-16 rounded-2xl bg-slate-950 border border-slate-750/80 p-1 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-lg shadow-black/60">
+          <img src="/logo.png" alt="NEEP Pickleball Logo" className="w-full h-full object-contain" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-display font-black tracking-wider text-white text-lg">NEEP<span className="text-[#d7f24c]">MLP</span></span>
+            <span className="text-[10px] font-mono text-[#d7f24c] bg-[#d7f24c]/10 border border-[#d7f24c]/30 px-2 py-0.5 rounded-full font-bold">PICKLEBALL</span>
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5">Major League Pickleball Tournament & Live Scoring</p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-white text-3xl font-display uppercase tracking-wide font-semibold">Tournament Setup</h2>
+        <h2 className="text-white text-2xl font-display uppercase tracking-wide font-semibold">Tournament Setup</h2>
         {!isAdmin && (
           <span className="text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
             <ShieldAlert size={12} /> Spectator Mode
